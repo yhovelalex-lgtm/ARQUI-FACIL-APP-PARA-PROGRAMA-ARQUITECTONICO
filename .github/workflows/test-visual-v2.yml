@@ -1,0 +1,22 @@
+name: Verificar rediseño visual
+on:
+  push:
+    branches:
+      - feature/graficos-matriz-laminas-v2
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Compilación Vite
+        run: npm run build
+      - name: Validación de código y componentes
+        run: node scripts/verify-visuals.mjs
