@@ -11,9 +11,9 @@ try{
  const matrix=page.getByRole('group',{name:'Matriz triangular romboidal de relaciones'});
  await matrix.waitFor();
  assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),55,'Triangular debe tener 55 pares');
- const first=page.getByRole('button',{name:'Relación entre Reception y Hall: 3. Clic para cambiar.'});
+ const first=page.getByRole('button',{name:'Relación entre Hall y Reception: 3. Clic para cambiar.'});
  await first.click();
- assert.equal(await page.getByRole('button',{name:'Relación entre Reception y Hall: 0. Clic para cambiar.'}).count(),1,'Edición debe funcionar');
+ assert.equal(await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).count(),1,'Edición debe funcionar');
  await page.getByRole('button',{name:'FORMA: TRIANGULAR'}).click();
  assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),110,'Cuadrada mantiene 110 celdas');
  await page.getByRole('button',{name:'FORMA: CUADRADA'}).click();
