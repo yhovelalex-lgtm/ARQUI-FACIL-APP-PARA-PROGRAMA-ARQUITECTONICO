@@ -1,0 +1,131 @@
+{
+  "randomSeed": 1,
+  "expectedSpaces": 11,
+  "expectedArea": 1760,
+  "declaredRelations": 10,
+  "ignoredRelations": [
+    "hall-biblio",
+    "hall-esc1",
+    "recep-cine",
+    "recep-cafe",
+    "recep-exhib",
+    "exhib-audi",
+    "exhib-esc2"
+  ],
+  "proposals": [
+    {
+      "ids": [
+        "esc2",
+        "hall",
+        "esc2",
+        "recep",
+        "esc1",
+        "recep",
+        "esc2",
+        "esc1",
+        "esc2",
+        "recep",
+        "hall"
+      ],
+      "uniqueSpaces": 4,
+      "declaredArea": 740,
+      "containerArea": 1760,
+      "fitness": 2605
+    },
+    {
+      "ids": [
+        "esc2",
+        "hall",
+        "esc2",
+        "recep",
+        "esc1",
+        "recep",
+        "esc2",
+        "esc1",
+        "esc2",
+        "recep",
+        "hall"
+      ],
+      "uniqueSpaces": 4,
+      "declaredArea": 740,
+      "containerArea": 1760,
+      "fitness": 2605
+    },
+    {
+      "ids": [
+        "esc2",
+        "hall",
+        "esc2",
+        "recep",
+        "esc1",
+        "recep",
+        "esc2",
+        "esc1",
+        "esc2",
+        "recep",
+        "hall"
+      ],
+      "uniqueSpaces": 4,
+      "declaredArea": 740,
+      "containerArea": 1760,
+      "fitness": 2605
+    },
+    {
+      "ids": [
+        "esc2",
+        "hall",
+        "esc2",
+        "recep",
+        "esc1",
+        "recep",
+        "esc2",
+        "esc1",
+        "esc2",
+        "recep",
+        "hall"
+      ],
+      "uniqueSpaces": 4,
+      "declaredArea": 740,
+      "containerArea": 1760,
+      "fitness": 2605
+    },
+    {
+      "ids": [
+        "esc2",
+        "hall",
+        "esc2",
+        "recep",
+        "esc1",
+        "recep",
+        "esc2",
+        "esc1",
+        "esc2",
+        "recep",
+        "hall"
+      ],
+      "uniqueSpaces": 4,
+      "declaredArea": 740,
+      "containerArea": 1760,
+      "fitness": 2605
+    },
+    {
+      "ids": [
+        "esc2",
+        "hall",
+        "esc2",
+        "recep",
+        "esc1",
+        "recep",
+        "esc2",
+        "esc1",
+        "esc2",
+        "recep",
+        "hall"
+      ],
+      "uniqueSpaces": 4,
+      "declaredArea": 740,
+      "containerArea": 1760,
+      "fitness": 2605
+    }
+  ]
+}

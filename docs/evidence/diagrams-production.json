@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "Producción: matriz triangular con 55 pares",
+    "Topología: desplazamiento completo en producción",
+    "Topología: zoom en producción",
+    "Relaciones: desplazamiento completo en producción",
+    "Relaciones: zoom en producción"
+  ],
+  "runtimeErrors": []
+}

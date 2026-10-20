@@ -1,0 +1,307 @@
+{
+  "results": [
+    {
+      "name": "Triangular: 55 pares editables para 11 espacios",
+      "status": "passed",
+      "detail": {
+        "actual": 55,
+        "expected": 55
+      }
+    },
+    {
+      "name": "Triangular: ningún par aparece dos veces",
+      "status": "passed",
+      "detail": {
+        "uniquePairs": 55
+      }
+    },
+    {
+      "name": "Cuadrada: 110 celdas editables simétricas",
+      "status": "passed",
+      "detail": {
+        "actual": 110,
+        "expected": 110
+      }
+    },
+    {
+      "name": "Cambiar una relación actualiza sus dos celdas",
+      "status": "passed",
+      "detail": {}
+    },
+    {
+      "name": "Volver a triangular conserva la relación editada",
+      "status": "passed",
+      "detail": {}
+    },
+    {
+      "name": "Topología: botón central sobre fondo desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      }
+    },
+    {
+      "name": "Topología: Alt + arrastre sobre fondo desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      }
+    },
+    {
+      "name": "Topología: rueda cambia el zoom",
+      "status": "passed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1.1
+        }
+      }
+    },
+    {
+      "name": "Topología: el zoom mantiene el punto bajo el cursor",
+      "status": "failed",
+      "detail": {
+        "anchorDrift": {
+          "x": 99.71199999999999,
+          "y": 57.1875
+        }
+      }
+    },
+    {
+      "name": "Topología: conserva encuadre al cambiar de módulo",
+      "status": "failed",
+      "detail": {
+        "beforeSwitch": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1.1
+        },
+        "afterSwitch": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      }
+    },
+    {
+      "name": "Topología: botón central sobre elemento desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "geometryBefore": {
+          "x": "570.0091861801471",
+          "y": "267.79573818622833"
+        },
+        "geometryAfter": {
+          "x": "600.7081909179688",
+          "y": "293.74932861328125"
+        }
+      }
+    },
+    {
+      "name": "Topología: Alt + arrastre sobre elemento desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "geometryBefore": {
+          "x": "585.6784882984147",
+          "y": "275.9084688138861"
+        },
+        "geometryAfter": {
+          "x": "610.0147094726562",
+          "y": "299.57135009765625"
+        }
+      }
+    },
+    {
+      "name": "Relaciones: botón central sobre fondo desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 17.5,
+          "y": 10,
+          "zoom": 1
+        }
+      }
+    },
+    {
+      "name": "Relaciones: Alt + arrastre sobre fondo desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 17.5,
+          "y": 10,
+          "zoom": 1
+        },
+        "after": {
+          "x": 11.25,
+          "y": 6.25,
+          "zoom": 1
+        }
+      }
+    },
+    {
+      "name": "Relaciones: rueda cambia el zoom",
+      "status": "passed",
+      "detail": {
+        "before": {
+          "x": 11.25,
+          "y": 6.25,
+          "zoom": 1
+        },
+        "after": {
+          "x": 11.25,
+          "y": 6.25,
+          "zoom": 1.1
+        }
+      }
+    },
+    {
+      "name": "Relaciones: el zoom mantiene el punto bajo el cursor",
+      "status": "failed",
+      "detail": {
+        "anchorDrift": {
+          "x": 98.58699999999999,
+          "y": 59.48750000000007
+        }
+      }
+    },
+    {
+      "name": "Relaciones: conserva encuadre al cambiar de módulo",
+      "status": "failed",
+      "detail": {
+        "beforeSwitch": {
+          "x": 11.25,
+          "y": 6.25,
+          "zoom": 1.1
+        },
+        "afterSwitch": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      }
+    },
+    {
+      "name": "Relaciones: botón central sobre elemento desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "geometryBefore": "translate(280, 260)",
+        "geometryAfter": "translate(325, 295)"
+      }
+    },
+    {
+      "name": "Relaciones: Alt + arrastre sobre elemento desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "geometryBefore": "translate(280, 260)",
+        "geometryAfter": "translate(325, 295)"
+      }
+    },
+    {
+      "name": "Topología: arrastre táctil desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      }
+    },
+    {
+      "name": "Relaciones: arrastre táctil desplaza la cámara",
+      "status": "failed",
+      "detail": {
+        "before": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "after": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      }
+    }
+  ],
+  "runtimeErrors": [],
+  "consoleMessages": [
+    "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+    "Excel no disponible: no se pudo cargar la librería SheetJS.",
+    "Unable to preventDefault inside passive event listener invocation."
+  ]
+}

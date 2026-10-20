@@ -1,0 +1,43 @@
+{
+  "checks": [
+    "Carga los 11 espacios del ejemplo",
+    "Añade un espacio con su área",
+    "Edita el área",
+    "Elimina el espacio",
+    "Relación 3 → 0",
+    "Relación 0 → 1",
+    "Relación 1 → 3",
+    "Alterna a matriz cuadrada",
+    "Dibuja la topología",
+    "Alterna la fusión",
+    "Cambia la posición del texto",
+    "Arrastra un recinto",
+    "Alterna los recorridos",
+    "El proceso termina y muestra seis tarjetas (no valida calidad)",
+    "Descarga PDF: 1 archivo(s)",
+    "Archivo PDF 1 tiene contenido",
+    "Descarga PNG: 3 archivo(s)",
+    "Archivo PNG 1 tiene contenido",
+    "Archivo PNG 2 tiene contenido",
+    "Archivo PNG 3 tiene contenido",
+    "Descarga JPG: 3 archivo(s)",
+    "Archivo JPG 1 tiene contenido",
+    "Archivo JPG 2 tiene contenido",
+    "Archivo JPG 3 tiene contenido",
+    "No desborda la página en móvil",
+    "El formulario cabe en móvil",
+    "Sin excepciones de JavaScript en la interfaz"
+  ],
+  "runtimeErrors": [],
+  "knownConsoleErrors": [
+    "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. rect-hall",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. rect-recep",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. rect-esc1",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. rect-esc2"
+  ],
+  "warnings": [
+    "Excel no disponible: no se pudo cargar la librería SheetJS."
+  ],
+  "note": "No certifica la calidad del motor ni la importación Excel. Ejecutar audit:original para los defectos reproducidos."
+}
