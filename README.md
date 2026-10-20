@@ -49,3 +49,12 @@ Este diagnóstico termina con **código 1** porque reproduce defectos reales del
 Resultados y límites de las pruebas: [VALIDACION.md](docs/VALIDACION.md).
 
 Revisión específica de la matriz triangular, controles de cámara y correcciones de desplazamiento: [REVISION_DIAGRAMAS.md](docs/REVISION_DIAGRAMAS.md).
+
+## Mantenimiento y publicación
+
+Consultar [ROADMAP.md](ROADMAP.md), [CHANGELOG.md](CHANGELOG.md) y [AGENTS.md](AGENTS.md).
+La comprobación de GitHub Actions instala dependencias y compila; no certifica el motor ni las exportaciones.
+
+Para Vercel: importar este repositorio, elegir Vite, raíz del repositorio, `npm ci`, `npm run build` y salida `dist`. `vercel.json` fija estos valores. No se requieren variables secretas para la versión actual. Usar Hobby únicamente para este uso personal no comercial y revisar cuotas antes de activar servicios adicionales.
+
+La primera publicación debe considerarse una beta de prueba: no existe guardado permanente y los defectos de la auditoría siguen abiertos. La conexión de ChatGPT a Vercel no implica por sí sola que Vercel tenga acceso al repositorio de GitHub.
