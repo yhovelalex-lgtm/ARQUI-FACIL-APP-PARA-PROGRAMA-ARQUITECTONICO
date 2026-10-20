@@ -13,6 +13,7 @@ try{
  assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),55,'Triangular debe tener 55 pares');
  const first=page.getByRole('button',{name:'Relación entre Hall y Reception: 3. Clic para cambiar.'});
  await first.click();
+ console.log('VALOR DESPUÉS DEL CLIC:', await page.locator('[aria-label^="Relación entre Hall y Reception:"]').first().getAttribute('aria-label'));
  await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).waitFor({timeout:6000});
  assert.equal(await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).count(),1,'Edición debe funcionar');
  await page.getByRole('button',{name:'FORMA: TRIANGULAR'}).click();
