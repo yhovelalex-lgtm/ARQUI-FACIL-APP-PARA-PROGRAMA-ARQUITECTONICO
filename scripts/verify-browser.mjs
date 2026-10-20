@@ -4,6 +4,7 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1600,height:950},acceptDownloads:true});
 const errors=[];
 page.on('pageerror',error=>errors.push(error.message));
+page.on('console',m=>{if(m.text().includes('DEBUG'))console.log('BROWSER:',m.text());});
 async function module(name){await page.getByRole('navigation').getByRole('button',{name:new RegExp(name)}).click();await page.waitForTimeout(150);}
 const url=process.env.BASE_URL||'http://127.0.0.1:5173/';
 try{
