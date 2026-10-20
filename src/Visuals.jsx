@@ -46,7 +46,7 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
   if (!spaces.length) return null;
   const h = 39, top = 52, left = 330, width = Math.max(785, left + h * spaces.length / 2 + 255), height = top + spaces.length * h + 34;
   const relColor = (value) => value === 3 ? colors.direct : value === 1 ? colors.indirect : colors.muted;
-  const clickPair = (a, b) => onCycleRelation && onCycleRelation(a, b);
+  const clickPair = (a, b) => { console.info('DEBUG clickPair',a,b,Boolean(onCycleRelation)); return onCycleRelation && onCycleRelation(a, b); };
   const makeCell = (a, b, x, y, diamond = false) => {
     const value = getRelation(a.id, b.id);
     const tone = relColor(value);
