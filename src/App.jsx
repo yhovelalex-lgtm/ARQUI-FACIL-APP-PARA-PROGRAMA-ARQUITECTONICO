@@ -428,7 +428,7 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
       const existingMap = new Map(currentNodes.map(n => [n.id, n]));
       return spaces.map((s, i) => {
         const calculatedRadius = Math.max(30, Math.sqrt(s.area || 10) * 8);
-        if (existingMap.has(s.id)) return { ...existingMap.get(s.id), ...s, radius: calculatedRadius };
+        if (existingMap.has(s.id)) return { ...s, ...existingMap.get(s.id), name:s.name, area:s.area, zone:s.zone, subzone:s.subzone, radius: calculatedRadius };
         const goldenRatio = 1.61803398875; const angle = i * Math.PI * 2 * goldenRatio; const rSpread = 100 + Math.sqrt(i) * 60; 
         const initX = s.tx !== undefined ? s.tx : 400 + Math.cos(angle) * rSpread; const initY = s.ty !== undefined ? s.ty : 300 + Math.sin(angle) * rSpread;
         return { ...s, x: initX, y: initY, vx: 0, vy: 0, radius: calculatedRadius, pinned: s.pinned !== undefined ? s.pinned : false };
@@ -566,13 +566,13 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
 // ==========================================
 function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpdatePosition, onUpdateSize, showAreaText, setShowAreaText, showFlows, setShowFlows, colors, legendPosition, onLegendPositionChange, controls }) {
   const containerRef = useRef(null);
-  const [lineDirectColor, setLineDirectColor] = useState(currentPalette.text); const [lineIndirectColor, setLineIndirectColor] = useState(currentPalette.text); const [boxTextColor, setBoxTextColor] = useState(currentPalette.text);
+  const [lineDirectColor, setLineDirectColor] = useState(colors.direct); const [lineIndirectColor, setLineIndirectColor] = useState(colors.indirect); const [boxTextColor, setBoxTextColor] = useState(colors.label);
   const [draggingId, setDraggingId] = useState(null); const [resizingId, setResizingId] = useState(null); const mouseOffset = useRef({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1); const [cameraOffset, setCameraOffset] = useState({ x: 0, y: 0 }); const isPanning = useRef(false); const panStart = useRef({ x: 0, y: 0 });
 
   useCanvasWheelZoom(containerRef, setZoom, spaces.length > 0);
 
-  useEffect(() => { setLineDirectColor(currentPalette.text); setLineIndirectColor(currentPalette.text); setBoxTextColor(currentPalette.text); }, [currentPalette]);
+  useEffect(() => { setLineDirectColor(colors.direct); setLineIndirectColor(colors.indirect); setBoxTextColor(colors.label); }, [colors.direct, colors.indirect, colors.label]);
   const drawOrthogonalLine = (n1, n2) => { const cx1 = n1.x + n1.w / 2, cy1 = n1.y + n1.h / 2, cx2 = n2.x + n2.w / 2, cy2 = n2.y + n2.h / 2; if (Math.abs(cx1 - cx2) > Math.abs(cy1 - cy2)) return `M ${cx1} ${cy1} H ${(cx1 + cx2) / 2} V ${cy2} H ${cx2}`; else return `M ${cx1} ${cy1} V ${(cy1 + cy2) / 2} H ${cx2} V ${cy2}`; };
   const drawOrganicCurve = (n1, n2) => { const cx1 = n1.x + n1.w / 2, cy1 = n1.y + n1.h / 2, cx2 = n2.x + n2.w / 2, cy2 = n2.y + n2.h / 2; return `M ${cx1} ${cy1} C ${cx1 + (cx2-cx1)/2} ${cy1}, ${cx1 + (cx2-cx1)/2} ${cy2}, ${cx2} ${cy2}`; };
   const getMouseCoord = (e) => { if (!containerRef.current) return {x:0, y:0}; const rect = containerRef.current.getBoundingClientRect(); return { x: (e.clientX - rect.left - cameraOffset.x) / zoom, y: (e.clientY - rect.top - cameraOffset.y) / zoom }; };
@@ -610,6 +610,7 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `${40*zoom}px ${40*zoom}px`, backgroundPosition: `${cameraOffset.x}px ${cameraOffset.y}px` }}></div>
          <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
            <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={{...colors,direct:lineDirectColor,indirect:lineIndirectColor,label:boxTextColor}} showAreaText={showAreaText} showFlows={showFlows} onNodePointerDown={handlePointerDownNode} onResizePointerDown={handlePointerDownResize} hoveredId={draggingId||resizingId}/>
+        </div>
            <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'3',text:'Directa / Necesaria',color:lineDirectColor},{code:'1',text:'Indirecta / Deseable',color:lineIndirectColor}]}/>
        </div>
       </div>
