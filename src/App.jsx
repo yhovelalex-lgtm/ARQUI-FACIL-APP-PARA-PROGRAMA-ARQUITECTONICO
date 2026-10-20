@@ -613,7 +613,6 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
         </div>
            <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'3',text:'Directa / Necesaria',color:lineDirectColor},{code:'1',text:'Indirecta / Deseable',color:lineIndirectColor}]}/>
        </div>
-      </div>
     </div>
   );
 }
