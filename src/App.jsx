@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { MatrixDiamond, TopologyArtwork, FlowArtwork, LegendOverlay, GraphicStyleControls, relationKey } from './Visuals.jsx';
+import PrintStudioView from './PrintStudio.jsx';
+import './visuals.css';
 import { Plus, Trash2, Grid, Network, ListPlus, Play, BrainCircuit, Sparkles, Loader2, Settings2, Square, LayoutTemplate, Printer, FileSpreadsheet, ZoomIn, Palette, ImagePlus, Shuffle, MoveRight } from 'lucide-react';
 
 const ZONES = { social: { id: 'social', label: 'Pública / Principal' }, private: { id: 'private', label: 'Privada / Anexos' }, service: { id: 'service', label: 'Servicios' }, circulation: { id: 'circulation', label: 'Circulación' } };
@@ -100,9 +103,7 @@ export default function App() {
     { id: 'scene', name: 'Scène en Direct', area: 350, zone: 'social', subzone: 'Espectáculo', x: 280, y: 520, w: 280, h: 160, pinned: false }
   ]);
   
-  const [matrix, setMatrix] = useState({
-    'hall-biblio': 3, 'hall-recep': 3, 'hall-esc1': 3, 'recep-serv': 1, 'recep-cine': 3, 'recep-cafe': 3, 'recep-exhib': 3, 'exhib-audi': 3, 'exhib-esc2': 3, 'cafe-scene': 3
-  });
+  const [matrix,setMatrix]=useState(()=>Object.fromEntries([['hall','biblio',3],['hall','recep',3],['hall','esc1',3],['recep','serv',1],['recep','cine',3],['recep','cafe',3],['recep','exhib',3],['exhib','audi',3],['exhib','esc2',3],['cafe','scene',3]].map(([a,b,v])=>[relationKey(a,b),v])));
 
   const [floorPlanProposals, setFloorPlanProposals] = useState([]);
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
@@ -117,6 +118,10 @@ export default function App() {
 
   // ESTADOS DE COLOR Y ESTILOS
   const [colorMode, setColorMode] = useState('macro');
+  const [colorSeed,setColorSeed]=useState(0),[styleOverrides,setStyleOverrides]=useState({});
+  const [matrixTriangular,setMatrixTriangular]=useState(true),[topologyNodes,setTopologyNodes]=useState([]);
+  const [showGooey,setShowGooey]=useState(true),[gooeyStrength,setGooeyStrength]=useState(1.8),[showFlows,setShowFlows]=useState(false);
+  const [legendPositions,setLegendPositions]=useState({matrix:{x:72,y:3},topology:{x:73,y:5},flowdiagram:{x:73,y:5}});
   const [selectedPaletteId, setSelectedPaletteId] = useState('minimalist'); 
   const [customPalette, setCustomPalette] = useState(null);
   const [extractedColors, setExtractedColors] = useState([]);
@@ -131,15 +136,20 @@ export default function App() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isGeneratingMatrix, setIsGeneratingMatrix] = useState(false);
 
-  const currentPalette = (selectedPaletteId === 'custom_image' && customPalette) ? customPalette : PRINT_PALETTES.find(p => p.id === selectedPaletteId) || PRINT_PALETTES[0];
+  const basePalette = (selectedPaletteId === 'custom_image' && customPalette) ? customPalette : PRINT_PALETTES.find(p => p.id === selectedPaletteId) || PRINT_PALETTES[0];
+  const currentPalette={...basePalette,...Object.fromEntries(['bg','text','lines'].filter(k=>styleOverrides[k]).map(k=>[k,styleOverrides[k]]))};
+  const colors={bg:currentPalette.bg,text:currentPalette.text,lines:currentPalette.lines,direct:styleOverrides.direct||currentPalette.zones.social,indirect:styleOverrides.indirect||currentPalette.zones.service,label:styleOverrides.label||currentPalette.text,area:styleOverrides.area||currentPalette.text,core:styleOverrides.core||currentPalette.text,blend:styleOverrides.blend||currentPalette.zones.private,legendBg:styleOverrides.legendBg||currentPalette.bg,legendBorder:styleOverrides.legendBorder||currentPalette.lines};
+  const changeLegend=(key)=>(position)=>setLegendPositions(prev=>({...prev,[key]:position}));
+  const graphicControls=<GraphicStyleControls selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} palettes={PRINT_PALETTES} customPalette={customPalette} colorMode={colorMode} setColorMode={setColorMode} shuffle={()=>setColorSeed(n=>n+1)} colors={colors} overrides={styleOverrides} setOverrides={setStyleOverrides}/>;
   const uniqueSubzones = useMemo(() => [...new Set(spaces.map(s => s.subzone || 'General'))], [spaces]);
   
   const getSpaceColor = useCallback((space) => {
-    if (colorMode === 'macro') return currentPalette.zones[space.zone] || currentPalette.lines;
+    if(colorMode==='auto'){const palette=[...Object.values(currentPalette.zones),...extractedColors,'#ef8354','#4cc9f0','#8ac926','#b39ddb','#f9c74f','#ff6b91'];let hash=colorSeed*17;for(const ch of String(space.id||space.name))hash=(hash*33+ch.charCodeAt(0))>>>0;return palette[hash%palette.length];}
+    if(colorMode==='macro'){const palette=Object.values(currentPalette.zones),i=Object.keys(currentPalette.zones).indexOf(space.zone);return palette[(i+colorSeed+palette.length)%palette.length]||currentPalette.lines;}
     const szIndex = uniqueSubzones.indexOf(space.subzone || 'General');
     if (selectedPaletteId === 'custom_image' && extractedColors.length > 0) return extractedColors[szIndex % extractedColors.length];
     return `hsl(${(szIndex * 137.5) % 360}, 75%, 60%)`;
-  }, [colorMode, currentPalette, uniqueSubzones, selectedPaletteId, extractedColors]);
+  }, [colorMode, currentPalette, uniqueSubzones, selectedPaletteId, extractedColors,colorSeed]);
 
   useEffect(() => {
     if (window.XLSX) { setXlsxLoaded(true); return; }
@@ -184,10 +194,10 @@ export default function App() {
   };
 
   const handleSpaceUpdate = (id, field, value) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
-  const removeSpace = (id) => { setSpaces(spaces.filter(s => s.id !== id)); setMatrix(prev => { const nm = {...prev}; Object.keys(nm).forEach(k => { if(k.includes(id)) delete nm[k]; }); return nm; }); };
+  const removeSpace = (id) => { setSpaces(spaces.filter(s => s.id !== id)); setMatrix(prev => { const nm = {...prev}; Object.keys(nm).forEach(k => { if(spaces.some(other=>other.id!==id&&relationKey(other.id,id)===k)) delete nm[k]; }); return nm; }); };
   const addSpace = (e) => { e.preventDefault(); const name = e.target.elements.spaceName.value, area = parseFloat(e.target.elements.spaceArea.value) || 10, zone = e.target.elements.spaceZone.value, subzone = e.target.elements.spaceSubzone.value || name; if (!name.trim()) return; setSpaces([...spaces, { id: generateId(), name, area, zone, subzone, x: 200, y: 200, w: 120, h: 80, pinned: false }]); e.target.reset(); };
   
-  const getRelation = (id1, id2) => matrix[[id1, id2].sort().join('-')] || 0;
+  const getRelation = (id1, id2) => matrix[relationKey(id1,id2)] || 0;
   const cycleRelation = (id1, id2) => { const key = [id1, id2].sort().join('-'); const current = matrix[key] || 0; setMatrix(prev => ({ ...prev, [key]: current === 0 ? 1 : current === 1 ? 3 : 0 })); };
   const handleSpacePositionUpdate = (id, newX, newY) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, x: newX, y: newY } : s));
   const handleSpaceSizeUpdate = (id, newW, newH) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, w: Math.max(50, newW), h: Math.max(50, newH) } : s));
@@ -246,11 +256,11 @@ export default function App() {
         <header className="workspace-header"><div className="breadcrumb"><span>ESPACIO DE TRABAJO</span><span>/</span><strong>{activeModule.label}</strong></div><div className="workspace-label"><span className="status-dot"/>Proyecto de ejemplo<span className="header-initial">AF</span></div></header>
         <div className="module-stage" key={activeTab}>
         {activeTab === 'spaces' && <SpacesView spaces={spaces} addSpace={addSpace} removeSpace={removeSpace} handleSpaceUpdate={handleSpaceUpdate} colorMode={colorMode} setColorMode={setColorMode} getSpaceColor={getSpaceColor} currentPalette={currentPalette} onExcelImport={handleExcelImport} importPreviewData={importPreviewData} importHeaders={importHeaders} importMapping={importMapping} setImportMapping={setImportMapping} confirmImport={confirmImport} cancelImport={() => setImportPreviewData(null)} importSheetNames={importSheetNames} selectedSheet={selectedSheet} onSheetChange={(e) => processExcelSheet(importWorkbook, e.target.value)} setSpaces={setSpaces} isGeneratingAI={isGeneratingAI} setIsGeneratingAI={setIsGeneratingAI} />}
-        {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix} />}
-        {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setSpaces} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize} />}
-        {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} showAreaText={showAreaText} setShowAreaText={setShowAreaText} />}
+        {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix}  isTriangular={matrixTriangular} setIsTriangular={setMatrixTriangular} colors={colors} legendPosition={legendPositions.matrix} onLegendPositionChange={changeLegend('matrix')} controls={graphicControls} />}
+        {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setTopologyNodes} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize}  savedNodes={topologyNodes} showGooey={showGooey} setShowGooey={setShowGooey} gooeyStrength={gooeyStrength} setGooeyStrength={setGooeyStrength} colors={colors} legendPosition={legendPositions.topology} onLegendPositionChange={changeLegend('topology')} controls={graphicControls} />}
+        {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} showAreaText={showAreaText} setShowAreaText={setShowAreaText}  showFlows={showFlows} setShowFlows={setShowFlows} colors={colors} legendPosition={legendPositions.flowdiagram} onLegendPositionChange={changeLegend('flowdiagram')} controls={graphicControls} />}
         {activeTab === 'floorplan' && <FloorPlanView spaces={spaces} matrix={matrix} proposals={floorPlanProposals} setProposals={setFloorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} />}
-        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize} />}
+        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize}  matrixTriangular={matrixTriangular} topologyNodes={topologyNodes} showGooey={showGooey} gooeyStrength={gooeyStrength} showFlows={showFlows} colors={colors} legendPositions={legendPositions} />}
         </div>
         <footer className="workspace-footer"><span><span className="status-dot"/>Sesión local · sin guardado permanente</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
       </main>
@@ -385,78 +395,31 @@ function SpacesView({ spaces, addSpace, removeSpace, handleSpaceUpdate, colorMod
 // ==========================================
 // VISTA 2: MATRIZ
 // ==========================================
-function MatrixView({ spaces, getRelation, cycleRelation, currentPalette, getSpaceColor, isGeneratingMatrix, setIsGeneratingMatrix, setMatrix }) {
-  const [isTriangular, setIsTriangular] = useState(true);
-
-  const handleAISolve = () => {
-      setIsGeneratingMatrix(true);
-      setTimeout(() => {
-          const newMatrix = {};
-          for(let i=0; i<spaces.length; i++){
-              for(let j=i+1; j<spaces.length; j++){
-                  const val = Math.random();
-                  if(val > 0.8) newMatrix[[spaces[i].id, spaces[j].id].sort().join('-')] = 3;
-                  else if(val > 0.5) newMatrix[[spaces[i].id, spaces[j].id].sort().join('-')] = 1;
-              }
-          }
-          setMatrix(newMatrix); setIsGeneratingMatrix(false);
-      }, 2000);
-  };
-
-  if (spaces.length < 2) return <div className="p-8 text-center text-[#73736c] h-full">Agrega espacios primero.</div>;
-  return (
-    <div className="p-8 h-full overflow-y-auto custom-scrollbar">
-      <div className="max-w-5xl mx-auto">
-        <header className="mb-8 flex justify-between items-end bg-[#f0f0eb]/80 p-6 rounded-2xl border border-[#ddddd5]">
-          <div><h2 className="text-3xl font-light text-[#20201c] tracking-wide">Matriz de <span className="font-bold text-[#292925]">Adyacencias</span></h2></div>
-          <div className="flex items-center gap-4">
-             <button title="Demostración aleatoria, sin IA ni evaluación de relaciones. Sustituye la matriz actual." onClick={handleAISolve} disabled={isGeneratingMatrix} className="px-4 py-2 bg-[#59594e]/20 text-[#59594e] border border-[#59594e]/40 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-[#59594e]/30 transition-all disabled:opacity-50">
-                 {isGeneratingMatrix ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} MATRIZ ALEATORIA · DEMO
-             </button>
-             <button onClick={() => setIsTriangular(!isTriangular)} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${isTriangular ? 'bg-[#292925]/10 text-[#292925] border-[#292925]/30' : 'bg-[#f6f6f2] text-[#73736c] border-[#ddddd5] hover:text-[#20201c]'}`}>FORMA: {isTriangular ? 'TRIANGULAR' : 'CUADRADA'}</button>
-          </div>
-        </header>
-        <div className="overflow-x-auto pb-8 bg-[#ffffff] p-6 rounded-2xl border border-[#ddddd5] shadow-xl inline-block">
-          <table className="border-collapse mx-auto">
-            <thead><tr><th className="p-2 border border-transparent"></th>{spaces.map((s, i) => (<th key={s.id} className="p-2 border-0"><div className="h-32 w-10 relative"><span className="absolute bottom-4 left-1/2 -translate-x-1/2 -rotate-45 whitespace-nowrap text-[10px] font-bold uppercase" style={{color: getSpaceColor(s)}}>{i + 1}. {s.name.substring(0, 15)}</span></div></th>))}</tr></thead>
-            <tbody>
-              {spaces.map((row, rowIndex) => (
-                <tr key={row.id}>
-                  <td className={`p-3 text-right text-[10px] uppercase font-bold pr-4 whitespace-nowrap border-[#ddddd5]/50 ${isTriangular ? 'border-r' : 'border'}`} style={{color: getSpaceColor(row)}}>{rowIndex + 1}. {row.name}</td>
-                  {spaces.map((col, colIndex) => {
-                    if (colIndex === rowIndex) return <td key={col.id} className={`p-1 ${isTriangular ? 'border-0 bg-transparent' : 'border border-[#ddddd5]/50 bg-[#f6f6f2]/50'}`}></td>;
-                    if (isTriangular && colIndex > rowIndex) return <td key={col.id} className="p-1 border-0 bg-transparent"></td>;
-                    const val = getRelation(row.id, col.id); let bgCol = 'transparent', textCol = 'transparent', borderCol = 'transparent';
-                    if (val === 3) { bgCol = `${getSpaceColor(row)}30`; textCol = getSpaceColor(row); borderCol = textCol; } if (val === 1) { bgCol = `${getSpaceColor(col)}15`; textCol = getSpaceColor(col); borderCol = textCol; }
-                    return (<td key={col.id} className="p-1 border border-[#ddddd5]/50 text-center"><button aria-label={`Relación entre ${row.name} y ${col.name}: ${val}. Clic para cambiar.`} onClick={() => cycleRelation(row.id, col.id)} className="w-10 h-10 rounded-lg border mx-auto font-mono text-sm transition-all hover:bg-[#f6f6f2]/80" style={{backgroundColor: bgCol, color: textCol, borderColor: borderCol}}>{val === 0 ? '-' : val}</button></td>);
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+function MatrixView({ spaces, getRelation, cycleRelation, currentPalette, getSpaceColor, isGeneratingMatrix, setIsGeneratingMatrix, setMatrix, isTriangular, setIsTriangular, colors, legendPosition, onLegendPositionChange, controls }) {
+ const handleAISolve=()=>{setIsGeneratingMatrix(true);setTimeout(()=>{const next={};for(let i=0;i<spaces.length;i++)for(let j=i+1;j<spaces.length;j++){const r=Math.random();if(r>.8)next[relationKey(spaces[i].id,spaces[j].id)]=3;else if(r>.5)next[relationKey(spaces[i].id,spaces[j].id)]=1;}setMatrix(next);setIsGeneratingMatrix(false);},2000);};
+ if(spaces.length<2)return <div className="p-8 text-center">Agrega espacios primero.</div>;
+ return <div className="p-6 h-full overflow-auto">
+   <header className="mb-5 flex flex-wrap items-center justify-between gap-4"><h2 className="text-2xl">Matriz <b>funcional</b></h2><div className="flex gap-2 flex-wrap items-center">{controls}<button className="px-3 py-2 text-xs border rounded" onClick={handleAISolve} disabled={isGeneratingMatrix}>{isGeneratingMatrix?'Generando…':'MATRIZ ALEATORIA · DEMO'}</button><button className="px-3 py-2 text-xs bg-[#292925] text-white rounded" onClick={()=>setIsTriangular(v=>!v)}>FORMA: {isTriangular?'TRIANGULAR':'CUADRADA'}</button></div></header>
+   <div className="af-matrix-board" style={{background:currentPalette.bg}}><div className="af-matrix-scroll" style={{'--matrix-bg':currentPalette.bg}}><MatrixDiamond spaces={spaces} getRelation={getRelation} onCycleRelation={cycleRelation} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} variant={isTriangular?'diamond':'square'}/></div><LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'3',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect},{code:'–',text:'Nula / Sin relación',color:currentPalette.lines}]}/></div>
+ </div>;
 }
 
 // ==========================================
 // VISTA 3: TOPOLOGÍA FÍSICA (Metaball / Gooey)
 // ==========================================
-function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesChange, showAreaText, setShowAreaText, topologyTextPos, setTopologyTextPos, topologyTextSize, setTopologyTextSize }) {
+function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesChange, showAreaText, setShowAreaText, topologyTextPos, setTopologyTextPos, topologyTextSize, setTopologyTextSize, savedNodes, showGooey, setShowGooey, gooeyStrength, setGooeyStrength, colors, legendPosition, onLegendPositionChange, controls }) {
   const containerRef = useRef(null); const requestRef = useRef();
-  const [nodes, setNodes] = useState([]);
+  const [nodes, setNodes] = useState(()=>savedNodes||[]);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [zoom, setZoom] = useState(1); const [cameraOffset, setCameraOffset] = useState({ x: 0, y: 0 });
   const [springLength, setSpringLength] = useState(150);
-  const [gooeyStrength, setGooeyStrength] = useState(1.8);
-  const [showGooey, setShowGooey] = useState(true);
   
   const nodesRef = useRef(nodes); const dragTarget = useRef(null); const mousePos = useRef({ x: 0, y: 0 });
   const isPanning = useRef(false); const panStart = useRef({ x: 0, y: 0 });
 
   useCanvasWheelZoom(containerRef, setZoom, spaces.length >= 2);
 
+  useEffect(() => () => onNodesChange(nodesRef.current), []);
   const unpinAll = () => { const unp = nodesRef.current.map(n => ({ ...n, pinned: false })); setNodes(unp); onNodesChange(unp); };
 
   useEffect(() => {
@@ -563,6 +526,7 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
       <div className="bg-[#ffffff]/90 backdrop-blur-md px-6 py-4 shadow-lg flex flex-wrap justify-between items-center z-20 border-b border-[#ddddd5] gap-4">
         <div><h2 className="text-xl font-light text-[#20201c] tracking-wide">Topología <span className="font-bold text-[#292925] text-[10px] bg-[#292925]/10 border border-[#292925]/30 px-2 py-1 rounded-full uppercase">Metaball</span></h2><p className="text-[10px] uppercase text-[#73736c] mt-1">Arrastra para fijar. Doble clic libera. Botón central o Alt + arrastrar: mover lienzo. Rueda: zoom.</p></div>
         <div className="flex items-center gap-3 flex-wrap">
+          {controls}
           <button onClick={unpinAll} className="px-3 py-1.5 rounded text-xs font-bold bg-[#a23d32]/10 text-[#a23d32] border border-[#a23d32]/30 hover:bg-[#a23d32] hover:text-[#20201c] transition-all">Desbloquear</button>
           <div className="w-px h-6 bg-[#ddddd5]"></div>
           
@@ -589,62 +553,9 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
       <div className={`flex-1 relative overflow-hidden touch-none ${isPanning.current ? 'cursor-grabbing' : 'cursor-crosshair'}`} ref={containerRef} onPointerDown={handleContainerPointerDown} onPointerMove={handleContainerPointerMove} onPointerUp={handleContainerPointerUp} onPointerCancel={handleContainerPointerUp} onMouseDown={e => { if(e.button === 1) e.preventDefault(); }} onAuxClick={e => { if(e.button === 1) e.preventDefault(); }}>
         <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `${40*zoom}px ${40*zoom}px`, backgroundPosition: `${cameraOffset.x}px ${cameraOffset.y}px` }}></div>
         <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
-          <svg width="4000" height="4000" className="absolute inset-0 overflow-visible" fontFamily="DM Sans, sans-serif">
-            <defs>
-              <filter id="gooey"><feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" /><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -10" result="goo" /><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
-              {nodes.map((nodeA, i) => nodes.slice(i + 1).map(nodeB => {
-                const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null;
-                return (<linearGradient key={`grad-${nodeA.id}-${nodeB.id}`} id={`grad-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor={getSpaceColor(nodeA)} /><stop offset="100%" stopColor={getSpaceColor(nodeB)} /></linearGradient>);
-              }))}
-            </defs>
-            {showGooey && (
-              <g opacity="0.6" filter="url(#gooey)">
-                {nodes.map((nodeA, i) => nodes.slice(i + 1).map(nodeB => {
-                  const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null;
-                  const dx = nodeA.x - nodeB.x, dy = nodeA.y - nodeB.y; const dist = Math.sqrt(dx*dx + dy*dy); const optimalDist = nodeA.radius + nodeB.radius + springLength; const maxStretch = optimalDist * 1.5; 
-                  if (dist > maxStretch) return null; 
-                  const baseThickness = Math.min(nodeA.radius, nodeB.radius) * gooeyStrength; let currentThickness = baseThickness;
-                  if (dist > optimalDist) { const stretchRatio = Math.max(0, 1 - ((dist - optimalDist) / (maxStretch - optimalDist))); currentThickness = baseThickness * stretchRatio; }
-                  if (currentThickness < 2) return null;
-                  return <line key={`goo-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={`url(#grad-${nodeA.id}-${nodeB.id})`} strokeWidth={currentThickness} strokeLinecap="round" />;
-                }))}
-                {nodes.map(node => <circle key={`goo-node-${node.id}`} cx={node.x} cy={node.y} r={node.radius * gooeyStrength} fill={getSpaceColor(node)} />)}
-              </g>
-            )}
-            <g>{nodes.map((nodeA, i) => nodes.slice(i + 1).map(nodeB => { const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null; return <line key={`dash-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={currentPalette.text} strokeWidth="1.5" strokeDasharray="4,4" opacity="0.5" />; }))}</g>
-            {nodes.map(node => {
-               const zColor = getSpaceColor(node); const textRadius = node.radius + 6; const pathId = `text-path-${node.id}`;
-               return (
-                <g key={`node-group-${node.id}`}>
-                  <g className={dragTarget.current === node.id ? 'cursor-grabbing' : 'cursor-grab'} onPointerDown={(e) => handlePointerDownNode(node.id, e)} onDoubleClick={(e) => handleDoubleClickNode(node.id, e)}>
-                    {node.pinned && <circle cx={node.x} cy={node.y} r={node.radius + 12} fill="none" stroke={zColor} strokeWidth="1.5" strokeDasharray="3,3" opacity="0.6" />}
-                    <circle cx={node.x} cy={node.y} r={node.radius} fill={currentPalette.bg} stroke={currentPalette.bg} strokeWidth="4" opacity="0.85" />
-                    <circle cx={node.x} cy={node.y} r={node.radius} fill={zColor} fillOpacity="0.3" stroke={zColor} strokeWidth="2" />
-                    
-                    {/* Renderización de textos y núcleos dependiente de topologyTextPos */}
-                    {topologyTextPos === 'edge' ? (
-                       <>
-                         <circle cx={node.x} cy={node.y} r="4" fill={currentPalette.bg} /><circle cx={node.x} cy={node.y} r="2" fill={currentPalette.text} />
-                         {showAreaText && <text x={node.x} y={node.y + 14} textAnchor="middle" fill={zColor} className="text-[10px] font-mono font-bold opacity-90 pointer-events-none">{node.area} m²</text>}
-                       </>
-                    ) : (
-                       <>
-                         <text x={node.x} y={node.y - (showAreaText ? (topologyTextSize/2 - 2) : 0)} textAnchor="middle" dominantBaseline="central" fill={currentPalette.text} style={{ fontSize: `${topologyTextSize}px` }} className="font-bold uppercase tracking-wider pointer-events-none">{node.name.length > 15 ? node.name.substring(0, 13) + '.' : node.name}</text>
-                         {showAreaText && <text x={node.x} y={node.y + (topologyTextSize/2 + 6)} textAnchor="middle" dominantBaseline="central" fill={zColor} className="text-[10px] font-mono font-bold opacity-90 pointer-events-none">{node.area} m²</text>}
-                       </>
-                    )}
-                  </g>
-                  {topologyTextPos === 'edge' && (
-                    <g className="pointer-events-none">
-                      <defs><path id={pathId} d={`M ${node.x - textRadius} ${node.y} A ${textRadius} ${textRadius} 0 1 1 ${node.x + textRadius} ${node.y}`} /></defs>
-                      <text fill={currentPalette.text} style={{ fontSize: `${topologyTextSize}px` }} className="font-bold uppercase tracking-widest"><textPath href={`#${pathId}`} startOffset="50%" textAnchor="middle">{node.name.length > 20 ? node.name.substring(0, 18) + '.' : node.name}</textPath></text>
-                    </g>
-                  )}
-                </g>
-              )
-            })}
-          </svg>
+          <TopologyArtwork nodes={nodes} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showGooey={showGooey} gooeyStrength={gooeyStrength} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize} onNodePointerDown={handlePointerDownNode} onNodeDoubleClick={handleDoubleClickNode}/>
         </div>
+        <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'3',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect}]}/>
       </div>
     </div>
   );
@@ -653,8 +564,8 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
 // ==========================================
 // VISTA 4: DIAGRAMA DE RELACIONES
 // ==========================================
-function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpdatePosition, onUpdateSize, showAreaText, setShowAreaText }) {
-  const [showFlows, setShowFlows] = useState(false); const containerRef = useRef(null);
+function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpdatePosition, onUpdateSize, showAreaText, setShowAreaText, showFlows, setShowFlows, colors, legendPosition, onLegendPositionChange, controls }) {
+  const containerRef = useRef(null);
   const [lineDirectColor, setLineDirectColor] = useState(currentPalette.text); const [lineIndirectColor, setLineIndirectColor] = useState(currentPalette.text); const [boxTextColor, setBoxTextColor] = useState(currentPalette.text);
   const [draggingId, setDraggingId] = useState(null); const [resizingId, setResizingId] = useState(null); const mouseOffset = useRef({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1); const [cameraOffset, setCameraOffset] = useState({ x: 0, y: 0 }); const isPanning = useRef(false); const panStart = useRef({ x: 0, y: 0 });
@@ -685,6 +596,7 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
       <div className="bg-[#ffffff]/90 backdrop-blur-md px-6 py-4 shadow-lg flex justify-between items-center z-20 border-b border-[#ddddd5] flex-wrap gap-4">
         <div><h2 className="text-xl font-light text-[#20201c] tracking-wide">Diagrama de <span className="font-bold text-[#292925]">Relaciones</span></h2><p className="text-[10px] uppercase text-[#73736c] mt-1">Arrastra esquinas para redimensionar. Botón central o Alt + arrastrar: mover lienzo. Rueda: zoom.</p></div>
         <div className="flex items-center gap-4 bg-[#f6f6f2] p-2 rounded-xl border border-[#ddddd5]">
+          {controls}
           <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Línea Directa</span><input type="color" value={lineDirectColor} onChange={e=>setLineDirectColor(e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
           <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Línea Punteada</span><input type="color" value={lineIndirectColor} onChange={e=>setLineIndirectColor(e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
           <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Texto Caja</span><input type="color" value={boxTextColor} onChange={e=>setBoxTextColor(e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
@@ -697,27 +609,9 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
       <div className={`flex-1 overflow-hidden relative touch-none ${isPanning.current ? 'cursor-grabbing' : 'cursor-crosshair'}`} ref={containerRef} onPointerDown={handleContainerPointerDown} onPointerMove={handleContainerPointerMove} onPointerUp={handleContainerPointerUp} onPointerCancel={handleContainerPointerUp} onMouseDown={e=>{if(e.button===1)e.preventDefault();}} onAuxClick={e=>{if(e.button===1)e.preventDefault();}}>
          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `${40*zoom}px ${40*zoom}px`, backgroundPosition: `${cameraOffset.x}px ${cameraOffset.y}px` }}></div>
          <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
-           <svg width="4000" height="4000" className="absolute inset-0 overflow-visible" fontFamily="DM Sans, sans-serif">
-              <defs><marker id="arrowHead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill={currentPalette.zones.circulation} opacity="0.8" /></marker></defs>
-              {spaces.map((n1, i) => spaces.slice(i+1).map(n2 => { const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight === 0 || (showFlows && (n1.zone === 'circulation' || n2.zone === 'circulation'))) return null; const isDirect = weight === 3; return <path key={`ortho-${n1.id}-${n2.id}`} d={drawOrthogonalLine(n1, n2)} fill="none" stroke={isDirect ? lineDirectColor : lineIndirectColor} strokeWidth={isDirect ? 2.5 : 1.5} strokeDasharray={isDirect ? 'none' : '4,4'} opacity={isDirect ? 0.6 : 0.3} />; }))}
-              {showFlows && spaces.map((n1, i) => spaces.slice(i+1).map(n2 => { const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight > 0 && (n1.zone === 'circulation' || n2.zone === 'circulation')) { return <path key={`flow-${n1.id}-${n2.id}`} d={drawOrganicCurve(n1, n2)} fill="none" stroke={currentPalette.zones.circulation} strokeWidth="5" strokeDasharray="10,10" opacity="0.8" markerEnd="url(#arrowHead)"/>; } return null; }))}
-              {spaces.map(node => {
-                 const zColor = getSpaceColor(node); const isHovered = draggingId === node.id || resizingId === node.id;
-                 return (
-                  <g key={`box-${node.id}`} transform={`translate(${node.x || 0}, ${node.y || 0})`}>
-                    {isHovered && <rect width={node.w} height={node.h} rx="12" ry="12" fill="none" stroke={zColor} strokeWidth="6" opacity="0.3" />}
-                    <g onPointerDown={(e) => handlePointerDownNode(e, node.id)} style={{ cursor: draggingId ? 'grabbing' : 'grab' }}>
-                      <rect width={node.w} height={node.h} rx="12" ry="12" fill={currentPalette.bg} stroke={zColor} strokeWidth="2" />
-                      <rect width={node.w} height={node.h} rx="12" ry="12" fill={zColor} opacity="0.15" />
-                      <text x={node.w/2} y={node.h/2 - (showAreaText ? 5 : 0)} textAnchor="middle" dominantBaseline="central" fill={boxTextColor} className="font-bold text-[11px] uppercase tracking-wider pointer-events-none">{node.name.length > 20 ? node.name.substring(0, 18) + '.' : node.name}</text>
-                      {showAreaText && <text x={node.w/2} y={node.h/2 + 12} textAnchor="middle" dominantBaseline="central" fill={zColor} className="font-mono text-[9px] opacity-80 pointer-events-none">{node.area} m²</text>}
-                    </g>
-                    <path d={`M ${node.w - 12} ${node.h - 2} L ${node.w - 2} ${node.h - 12} M ${node.w - 8} ${node.h - 2} L ${node.w - 2} ${node.h - 8}`} stroke={currentPalette.text} strokeWidth="1.5" opacity="0.5" className="cursor-nwse-resize" onPointerDown={(e) => handlePointerDownResize(e, node.id)} />
-                  </g>
-                 )
-              })}
-           </svg>
-         </div>
+           <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={{...colors,direct:lineDirectColor,indirect:lineIndirectColor,label:boxTextColor}} showAreaText={showAreaText} showFlows={showFlows} onNodePointerDown={handlePointerDownNode} onResizePointerDown={handlePointerDownResize} hoveredId={draggingId||resizingId}/>
+           <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'3',text:'Directa / Necesaria',color:lineDirectColor},{code:'1',text:'Indirecta / Deseable',color:lineIndirectColor}]}/>
+       </div>
       </div>
     </div>
   );
@@ -746,150 +640,3 @@ function FloorPlanView({ spaces, matrix, proposals, setProposals, currentPalette
 // ==========================================
 // VISTA 6: ESTUDIO DE IMPRESIÓN
 // ==========================================
-function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, shuffleCustomPalette, customBgMode, setCustomBackground, showAreaText, topologyTextPos, topologyTextSize }) {
-  const [selectedViews, setSelectedViews] = useState({ matrix: true, topology: true, flowdiagram: true }); const [isExporting, setIsExporting] = useState(false); const [pageFormat, setPageFormat] = useState({ w: 420, h: 297 }); const fileInputRef = useRef(null);
-  const toggleView = (v) => setSelectedViews(prev => ({ ...prev, [v]: !prev[v] }));
-  const getBBox = (mode) => { let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; spaces.forEach(s => { if (mode === 'flow') { minX = Math.min(minX, s.x); minY = Math.min(minY, s.y); maxX = Math.max(maxX, s.x + (s.w || 100)); maxY = Math.max(maxY, s.y + (s.h || 100)); } else { const rad = Math.max(30, Math.sqrt(s.area || 10) * 8); minX = Math.min(minX, s.x - rad); minY = Math.min(minY, s.y - rad); maxX = Math.max(maxX, s.x + rad); maxY = Math.max(maxY, s.y + rad); } }); if(minX === Infinity) return "0 0 800 600"; const pad = 100; return `${minX - pad} ${minY - pad} ${maxX - minX + pad*2} ${maxY - minY + pad*2}`; };
-
-  const exportBatch = async (type) => {
-    setIsExporting(true);
-    // Bundle the existing exporters locally, loading them only when exporting.
-    const [{ default: html2pdf }, { default: html2canvas }] = await Promise.all([import('html2pdf.js'), import('html2canvas')]);
-    const activeKeys = Object.keys(selectedViews).filter(k => selectedViews[k]);
-    if (type === 'pdf' && html2pdf) {
-      const element = document.createElement('div');
-      activeKeys.forEach((key, index) => { const wrapper = document.createElement('div'); wrapper.style.width = `${pageFormat.w}mm`; wrapper.style.height = `${pageFormat.h}mm`; wrapper.style.backgroundColor = currentPalette.bg; wrapper.style.position = 'relative'; wrapper.style.overflow = 'hidden'; if(index < activeKeys.length - 1) wrapper.style.pageBreakAfter = 'always'; const content = document.getElementById(`print-node-${key}`); if(content) { const clone = content.cloneNode(true); clone.style.display = 'flex'; clone.style.width = '100%'; clone.style.height = '100%'; wrapper.appendChild(clone); } element.appendChild(wrapper); });
-      const opt = { margin: 0, filename: `GenPlan_Batch_Export.pdf`, image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: [pageFormat.w, pageFormat.h], orientation: pageFormat.w > pageFormat.h ? 'landscape' : 'portrait' } };
-      await html2pdf().set(opt).from(element).save();
-    } else if ((type === 'png' || type === 'jpg') && html2canvas) {
-       for(const key of activeKeys) { const content = document.getElementById(`print-node-${key}`); if (content) { content.style.display = 'flex'; content.style.width = `${pageFormat.w}mm`; content.style.height = `${pageFormat.h}mm`; const canvas = await html2canvas(content, { scale: 2, backgroundColor: currentPalette.bg, useCORS: true }); const link = document.createElement('a'); link.download = `GenPlan_${key}.${type}`; link.href = canvas.toDataURL(`image/${type === 'jpg' ? 'jpeg' : 'png'}`); link.click(); content.style.display = 'none'; } }
-    }
-    setIsExporting(false);
-  };
-
-  const MatrixContent = () => (
-     <table className="border-collapse mx-auto" style={{fontFamily: "'DM Sans', sans-serif"}}>
-        <thead><tr><th className="p-2"></th>{spaces.map((s, i) => (<th key={s.id} className="p-2 border-0"><div className="h-32 w-10 relative"><span className="absolute bottom-4 left-1/2 -translate-x-1/2 -rotate-45 whitespace-nowrap text-xs uppercase font-bold" style={{color: getSpaceColor(s)}}>{i + 1}. {s.name}</span></div></th>))}</tr></thead>
-        <tbody>
-          {spaces.map((row, rowIndex) => (
-            <tr key={row.id}>
-              <td className="p-3 text-right text-xs uppercase pr-4 font-bold whitespace-nowrap" style={{color: getSpaceColor(row), borderRight: `2px solid ${currentPalette.lines}`}}>{rowIndex + 1}. {row.name}</td>
-              {spaces.map((col, colIndex) => {
-                if (colIndex === rowIndex || colIndex > rowIndex) return <td key={col.id} className="p-1 border-0"></td>;
-                const val = getRelation(row.id, col.id); let bgCol = 'transparent', textCol = currentPalette.lines;
-                if (val === 3) { bgCol = `${getSpaceColor(row)}30`; textCol = getSpaceColor(row); } if (val === 1) { bgCol = `${getSpaceColor(col)}15`; textCol = getSpaceColor(col); }
-                return (<td key={col.id} className="p-1 border" style={{borderColor: currentPalette.lines}}><div className="w-10 h-10 flex items-center justify-center font-bold" style={{backgroundColor: val===0?'transparent':bgCol, color: val===0?currentPalette.lines:textCol}}>{val===0?'-':val}</div></td>);
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-  );
-
-  const FlowContent = () => (
-     <svg viewBox={getBBox('flow')} className="w-full h-full relative z-10" fontFamily="DM Sans, sans-serif">
-        {spaces.map((n1, i) => spaces.slice(i+1).map(n2 => {
-             const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight === 0) return null;
-             const cx1 = n1.x+n1.w/2, cy1 = n1.y+n1.h/2, cx2 = n2.x+n2.w/2, cy2 = n2.y+n2.h/2, isDirect = weight===3;
-             const d = Math.abs(cx1-cx2) > Math.abs(cy1-cy2) ? `M ${cx1} ${cy1} H ${(cx1+cx2)/2} V ${cy2} H ${cx2}` : `M ${cx1} ${cy1} V ${(cy1+cy2)/2} H ${cx2} V ${cy2}`;
-             return <path key={`ortho-${n1.id}-${n2.id}`} d={d} fill="none" stroke={currentPalette.text} strokeWidth={isDirect ? 2.5 : 1} strokeDasharray={isDirect ? 'none' : '4,4'} opacity={isDirect ? 0.6 : 0.3} />;
-        }))}
-        {spaces.map(node => {
-           const zColor = getSpaceColor(node);
-           return (
-            <g key={`box-${node.id}`} transform={`translate(${node.x}, ${node.y})`}>
-              <rect width={node.w} height={node.h} rx="12" ry="12" fill={currentPalette.bg} stroke={zColor} strokeWidth="3" />
-              <rect width={node.w} height={node.h} rx="12" ry="12" fill={zColor} opacity="0.15" />
-              <text x={node.w/2} y={node.h/2 - (showAreaText ? 5 : 0)} textAnchor="middle" dominantBaseline="central" fill={currentPalette.text} className="font-bold text-[14px] uppercase tracking-wider">{node.name}</text>
-              {showAreaText && <text x={node.w/2} y={node.h/2 + 14} textAnchor="middle" dominantBaseline="central" fill={zColor} className="font-mono text-[12px] opacity-80">{node.area} m²</text>}
-            </g>
-           )
-        })}
-     </svg>
-  );
-
-  const TopologyContent = () => (
-     <svg viewBox={getBBox('topo')} className="w-full h-full relative z-10" fontFamily="DM Sans, sans-serif">
-        <defs>
-          <filter id="print-gooey"><feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" /><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -10" result="goo" /><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
-          {spaces.map((nodeA, i) => spaces.slice(i + 1).map(nodeB => {
-            const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null;
-            return (<linearGradient key={`p-grad-${nodeA.id}-${nodeB.id}`} id={`p-grad-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor={getSpaceColor(nodeA)} /><stop offset="100%" stopColor={getSpaceColor(nodeB)} /></linearGradient>);
-          }))}
-        </defs>
-        <g opacity="0.6" filter="url(#print-gooey)">
-          {spaces.map((nodeA, i) => spaces.slice(i + 1).map(nodeB => {
-            const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null;
-            const radA = Math.max(30, Math.sqrt(nodeA.area || 10) * 8), radB = Math.max(30, Math.sqrt(nodeB.area || 10) * 8);
-            return <line key={`p-goo-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={`url(#p-grad-${nodeA.id}-${nodeB.id})`} strokeWidth={Math.min(radA, radB)*1.8} strokeLinecap="round" />;
-          }))}
-          {spaces.map(node => <circle key={`p-goo-node-${node.id}`} cx={node.x} cy={node.y} r={(Math.max(30, Math.sqrt(node.area || 10) * 8)) * 1.8} fill={getSpaceColor(node)} />)}
-        </g>
-        <g>{spaces.map((nodeA, i) => spaces.slice(i + 1).map(nodeB => { const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null; return <line key={`p-dash-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={currentPalette.text} strokeWidth="1.5" strokeDasharray="4,4" opacity="0.5" />; }))}</g>
-        {spaces.map(node => {
-           const zColor = getSpaceColor(node); const rad = Math.max(30, Math.sqrt(node.area || 10) * 8); const textRadius = rad + 6;
-           return (
-            <g key={`p-node-${node.id}`}>
-              <circle cx={node.x} cy={node.y} r={rad} fill={currentPalette.bg} stroke={currentPalette.bg} strokeWidth="4" />
-              <circle cx={node.x} cy={node.y} r={rad} fill={zColor} fillOpacity="0.3" stroke={zColor} strokeWidth="2" />
-              
-              {topologyTextPos === 'edge' ? (
-                  <>
-                    <circle cx={node.x} cy={node.y} r="4" fill={currentPalette.bg} /><circle cx={node.x} cy={node.y} r="2" fill={currentPalette.text} />
-                    {showAreaText && <text x={node.x} y={node.y + 14} textAnchor="middle" fill={zColor} className="text-[12px] font-mono font-bold">{node.area} m²</text>}
-                    <defs><path id={`p-text-path-${node.id}`} d={`M ${node.x - textRadius} ${node.y} A ${textRadius} ${textRadius} 0 1 1 ${node.x + textRadius} ${node.y}`} /></defs>
-                    <text fill={currentPalette.text} style={{ fontSize: `${topologyTextSize}px` }} className="font-bold uppercase tracking-widest"><textPath href={`#p-text-path-${node.id}`} startOffset="50%" textAnchor="middle">{node.name}</textPath></text>
-                  </>
-              ) : (
-                  <>
-                    <text x={node.x} y={node.y - (showAreaText ? (topologyTextSize/2 - 2) : 0)} textAnchor="middle" dominantBaseline="central" fill={currentPalette.text} style={{ fontSize: `${topologyTextSize}px` }} className="font-bold uppercase tracking-wider">{node.name}</text>
-                    {showAreaText && <text x={node.x} y={node.y + (topologyTextSize/2 + 6)} textAnchor="middle" dominantBaseline="central" fill={zColor} className="text-[12px] font-mono font-bold">{node.area} m²</text>}
-                  </>
-              )}
-            </g>
-          )
-        })}
-     </svg>
-  );
-
-  return (
-    <div className="flex flex-col h-full bg-[#f6f6f2] overflow-hidden">
-      <div id="print-node-matrix" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="transform scale-125"><MatrixContent /></div></div>
-      <div id="print-node-flowdiagram" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="absolute inset-0 opacity-10" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `40px 40px` }}></div><FlowContent /></div>
-      <div id="print-node-topology" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><TopologyContent /></div>
-      
-      <div className="bg-[#ffffff]/90 px-6 py-4 shadow-lg flex items-center justify-between z-10 border-b border-[#ddddd5] flex-shrink-0">
-        <h2 className="text-xl font-light text-[#20201c] tracking-wide flex items-center gap-2"><Palette className="text-[#a23d32]"/> Estudio de <span className="font-bold text-[#20201c]">láminas</span></h2>
-        <div className="flex items-center gap-4 bg-[#f6f6f2] p-2 rounded-xl border border-[#ddddd5]">
-          <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-2 uppercase">Tema / Paleta</span>
-            <div className="flex items-center">
-              <select value={selectedPaletteId} onChange={e => setSelectedPaletteId(e.target.value)} className="bg-transparent text-[#242420] font-bold text-sm outline-none px-2 w-32">{PRINT_PALETTES.map(p => <option key={p.id} value={p.id} className="text-black">{p.name}</option>)}{customPalette && <option value="custom_image" className="text-black">{customPalette.name}</option>}</select>
-              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
-              <button onClick={() => fileInputRef.current.click()} className="text-[#292925] hover:text-[#20201c] p-1 ml-1 bg-[#292925]/10 rounded"><ImagePlus size={16} /></button>
-              {selectedPaletteId === 'custom_image' && customPalette && (<div className="flex items-center gap-1 ml-1 bg-[#ffffff] p-1 rounded-lg border border-[#ddddd5]"><button onClick={shuffleCustomPalette} className="text-[#a23d32] p-1 bg-[#a23d32]/10 rounded"><Shuffle size={12} /></button><button onClick={() => setCustomBackground('light')} className={`w-3 h-3 rounded-sm border ${customBgMode === 'light' ? 'border-[#292925]' : 'border-[#ddddd5]'} bg-white`}></button><button onClick={() => setCustomBackground('dark')} className={`w-3 h-3 rounded-sm border ${customBgMode === 'dark' ? 'border-[#292925]' : 'border-[#ddddd5]'} bg-black`}></button></div>)}
-            </div>
-          </div>
-          <div className="w-px h-6 bg-[#ddddd5]"></div>
-          <div className="flex gap-2"><div className="flex flex-col"><span className="text-[9px] text-[#73736c] uppercase">Ancho (mm)</span><input type="number" value={pageFormat.w} onChange={e=>setPageFormat({...pageFormat, w: Number(e.target.value)})} className="bg-[#f6f6f2] text-[#20201c] border border-[#ddddd5] w-16 text-center text-xs p-1 rounded" /></div><div className="flex flex-col"><span className="text-[9px] text-[#73736c] uppercase">Alto (mm)</span><input type="number" value={pageFormat.h} onChange={e=>setPageFormat({...pageFormat, h: Number(e.target.value)})} className="bg-[#f6f6f2] text-[#20201c] border border-[#ddddd5] w-16 text-center text-xs p-1 rounded" /></div></div>
-          <div className="w-px h-6 bg-[#ddddd5]"></div>
-          <div className="flex gap-2">
-            <button onClick={() => exportBatch('pdf')} disabled={isExporting} className="bg-[#a23d32] text-[#20201c] px-4 py-2 rounded font-bold flex items-center gap-2 text-sm disabled:opacity-50">{isExporting ? <Loader2 className="animate-spin" size={14}/> : <Printer size={14}/>} PDF</button>
-            <button onClick={() => exportBatch('png')} disabled={isExporting} className="bg-[#292925] text-[#f6f6f2] px-4 py-2 rounded font-bold flex items-center gap-2 text-sm disabled:opacity-50">PNG</button>
-            <button onClick={() => exportBatch('jpg')} disabled={isExporting} className="bg-white text-black px-4 py-2 rounded font-bold flex items-center gap-2 text-sm disabled:opacity-50">JPG</button>
-          </div>
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center custom-scrollbar" style={{ backgroundColor: `${currentPalette.bg}10` }}>
-         <div className="bg-[#ffffff] p-6 rounded-2xl border border-[#ddddd5] w-full max-w-2xl text-center mb-8 flex-shrink-0 shadow-xl"><h3 className="text-xl font-light text-[#20201c] mb-2">Selecciona vistas a Exportar</h3><div className="grid grid-cols-3 gap-4 mt-6"><button onClick={()=>toggleView('matrix')} className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedViews.matrix ? 'bg-[#242420]/10 border-[#242420] text-[#242420] shadow-[0_0_15px_rgba(0,255,157,0.1)]' : 'bg-[#f6f6f2] border-[#ddddd5] text-[#73736c]'}`}><Grid size={24}/> <span>Matriz Funcional</span></button><button onClick={()=>toggleView('flowdiagram')} className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedViews.flowdiagram ? 'bg-[#242420]/10 border-[#242420] text-[#242420] shadow-[0_0_15px_rgba(0,255,157,0.1)]' : 'bg-[#f6f6f2] border-[#ddddd5] text-[#73736c]'}`}><Network size={24}/> <span>Diagrama Flujos</span></button><button onClick={()=>toggleView('topology')} className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedViews.topology ? 'bg-[#242420]/10 border-[#242420] text-[#242420] shadow-[0_0_15px_rgba(0,255,157,0.1)]' : 'bg-[#f6f6f2] border-[#ddddd5] text-[#73736c]'}`}><BrainCircuit size={24}/> <span>Topología Metaball</span></button></div></div>
-         <div className="w-full max-w-6xl"><div className="flex items-center gap-3 mb-6 border-b border-[#ddddd5] pb-2"><ZoomIn className="text-[#73736c]" size={16} /><h4 className="text-sm font-bold text-[#20201c] uppercase tracking-widest">Previsualización de Hojas</h4></div>
-            <div className="flex flex-wrap gap-10 justify-center pb-12">
-                {selectedViews.matrix && (<div className="flex flex-col items-center gap-3 group"><span className="text-[10px] text-[#242420] uppercase font-bold tracking-widest bg-[#ffffff] px-3 py-1 rounded-full border border-[#ddddd5]">Pág 1: Matriz</span><div className="shadow-2xl border border-[#ddddd5] overflow-hidden flex items-center justify-center transition-transform group-hover:scale-105" style={{ width: '280px', aspectRatio: `${pageFormat.w}/${pageFormat.h}`, backgroundColor: currentPalette.bg }}><div style={{ transform: 'scale(0.35)', transformOrigin: 'center' }}><MatrixContent /></div></div></div>)}
-                {selectedViews.flowdiagram && (<div className="flex flex-col items-center gap-3 group"><span className="text-[10px] text-[#242420] uppercase font-bold tracking-widest bg-[#ffffff] px-3 py-1 rounded-full border border-[#ddddd5]">Pág 2: Flujos</span><div className="shadow-2xl border border-[#ddddd5] overflow-hidden relative transition-transform group-hover:scale-105" style={{ width: '280px', aspectRatio: `${pageFormat.w}/${pageFormat.h}`, backgroundColor: currentPalette.bg, padding: '15px' }}><div className="absolute inset-0 opacity-10" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `15px 15px` }}></div><FlowContent /></div></div>)}
-                {selectedViews.topology && (<div className="flex flex-col items-center gap-3 group"><span className="text-[10px] text-[#242420] uppercase font-bold tracking-widest bg-[#ffffff] px-3 py-1 rounded-full border border-[#ddddd5]">Pág 3: Topología</span><div className="shadow-2xl border border-[#ddddd5] overflow-hidden transition-transform group-hover:scale-105" style={{ width: '280px', aspectRatio: `${pageFormat.w}/${pageFormat.h}`, backgroundColor: currentPalette.bg, padding: '15px' }}><TopologyContent /></div></div>)}
-            </div>
-         </div>
-      </div>
-
-    </div>
-  );
-}
