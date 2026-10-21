@@ -154,3 +154,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fm-dot-one{opacity:.26}.fm-dot-two{opacity:.55}.fm-dot-three{background:#454a47}
 .fm-print-wrapper .fm-sheet{min-width:0}
 @media(max-width:800px){.fm-screen{padding:18px}.fm-header{align-items:flex-start;flex-direction:column}.fm-canvas-scroll{padding:12px}.fm-rooms{width:295px;flex-basis:295px}.fm-column-head,.fm-room{grid-template-columns:minmax(0,1fr) 63px 26px;padding:0 7px}.fm-room-name,.fm-room-area{font-size:10px}}
+
+/* Matriz funcional v2: tabla y triángulo dibujados en el mismo sistema de coordenadas. */
+.fm-sheet{display:block;flex:0 0 auto;align-self:flex-start;background:#fff}
+.fm-svg{display:block;overflow:visible;max-width:none}
+.fm-head-text{font-family:var(--font-sans);font-size:11px;font-weight:750;fill:#343b35;letter-spacing:.15px}
+.fm-row-label{font-family:var(--font-sans);font-size:12px;font-weight:650;fill:#2d342e}
+.fm-row-info{font-family:var(--font-sans);font-size:12px;fill:#343c36}
+.fm-row-total{font-family:var(--font-mono);font-size:13px;font-weight:700;fill:#2b342d}
+.fm-tile{fill:white;stroke:#cbd3cd;stroke-width:1.15;stroke-linejoin:round}
+.fm-perimeter{fill:none;stroke:#66726b;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.fm-editable:focus-visible{outline:none}
+.fm-editable:focus-visible .fm-tile,.fm-editable:hover .fm-tile{fill:#edf2ed;stroke:#677a6b;stroke-width:1.7}
+.fm-print-wrapper{width:max-content}
+.fm-print-wrapper .fm-sheet{min-width:0}
+.fm-dot-two{opacity:1;background:#424844}
+@media(max-width:800px){.fm-canvas-scroll{overflow:auto}.fm-sheet{min-width:0!important}}
