@@ -170,3 +170,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fm-print-wrapper .fm-sheet{min-width:0}
 .fm-dot-two{opacity:1;background:#424844}
 @media(max-width:800px){.fm-canvas-scroll{overflow:auto}.fm-sheet{min-width:0!important}}
+
+/* Leyenda restaurada para vista y exportación: 0 vacío, 1 discontinua, 2 continua. */
+.fm-legend{max-width:1400px;margin:16px auto 0;display:flex;align-items:center;flex-wrap:wrap;gap:18px;font-size:11px;color:#666e67}
+.fm-legend>span{display:inline-flex;align-items:center;gap:7px}
+.fm-help{margin-left:auto;font-size:10px;color:#8a918a}
+.fm-legend-box,.fm-legend-line{display:inline-block;flex:0 0 auto}
+.fm-legend-box{height:14px;width:14px;border:1px solid #cbd3cd;background:white}
+.fm-legend-line{width:24px;border-top:2px solid #424844}
+.fm-line-indirect{border-top-style:dashed;opacity:.75}
+.fm-line-direct{border-top-style:solid}
+.fm-print-wrapper .fm-legend{padding-top:10px;padding-bottom:8px;max-width:none;justify-content:center}
+.fm-print-wrapper .fm-help{margin-left:0}
