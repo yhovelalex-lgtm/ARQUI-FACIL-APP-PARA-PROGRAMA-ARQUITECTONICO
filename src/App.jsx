@@ -406,7 +406,7 @@ function MatrixView({ spaces, getRelation, cycleRelation, currentPalette, getSpa
  if(spaces.length<2)return <div className="p-8 text-center">Agrega espacios primero.</div>;
  return <div className="p-6 h-full overflow-auto">
    <header className="mb-5 flex flex-wrap items-center justify-between gap-4"><h2 className="text-2xl">Matriz <b>funcional</b></h2><div className="flex gap-2 flex-wrap items-center">{controls}<button className="px-3 py-2 text-xs border rounded" onClick={handleAISolve} disabled={isGeneratingMatrix}>{isGeneratingMatrix?'Generando…':'MATRIZ ALEATORIA · DEMO'}</button><button className="px-3 py-2 text-xs bg-[#292925] text-white rounded" onClick={()=>setIsTriangular(v=>!v)}>FORMA: {isTriangular?'TRIANGULAR':'CUADRADA'}</button></div></header>
-   <div className="af-matrix-board" style={{background:currentPalette.bg}}><div className="af-matrix-scroll" style={{'--matrix-bg':currentPalette.bg}}><MatrixDiamond spaces={spaces} getRelation={getRelation} onCycleRelation={cycleRelation} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} variant={isTriangular?'diamond':'square'} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize}/></div><LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'3',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect},{code:'–',text:'Nula / Sin relación',color:currentPalette.lines}]}/></div>
+   <div className="af-matrix-board" style={{background:currentPalette.bg}}><div className="af-matrix-scroll" style={{'--matrix-bg':currentPalette.bg}}><MatrixDiamond spaces={spaces} getRelation={getRelation} onCycleRelation={cycleRelation} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} variant={isTriangular?'diamond':'square'} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize}/></div><LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'2',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect},{code:'–',text:'Nula / Sin relación',color:currentPalette.lines}]}/></div>
  </div>;
 }
 
@@ -561,7 +561,7 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
         <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
           <TopologyArtwork nodes={nodes} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showGooey={showGooey} gooeyStrength={gooeyStrength} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={typography.labelSize} areaTextSize={typography.areaSize} onNodePointerDown={handlePointerDownNode} onNodeDoubleClick={handleDoubleClickNode}/>
         </div>
-        <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'3',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect}]}/>
+        <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'2',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect}]}/>
       </div>
     </div>
   );
@@ -617,7 +617,7 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
          <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
            <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showAreaText={showAreaText} showFlows={showFlows} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} onNodePointerDown={handlePointerDownNode} onResizePointerDown={handlePointerDownResize} hoveredId={draggingId||resizingId}/>
         </div>
-           <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'3',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect}]}/>
+           <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'2',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect}]}/>
        </div>
     </div>
   );
