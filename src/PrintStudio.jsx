@@ -36,7 +36,7 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
   },[spaces,topologyNodes]);
   const meta={matrix:legendPositions.matrix,flowdiagram:legendPositions.flowdiagram,topology:legendPositions.topology};
   const legendItems=[
-    {code:'3',text:'Directa / Necesaria',color:colors.direct},
+    {code:'2',text:'Directa / Necesaria',color:colors.direct},
     {code:'1',text:'Indirecta / Deseable',color:colors.indirect},
     {code:'–',text:'Nula / Sin relación',color:currentPalette.lines}
   ];
