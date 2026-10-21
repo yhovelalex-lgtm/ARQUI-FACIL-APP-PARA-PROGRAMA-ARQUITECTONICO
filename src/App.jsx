@@ -117,6 +117,8 @@ export default function App() {
 
   // ESTADOS DE COLOR Y ESTILOS
   const [colorMode, setColorMode] = useState('macro');
+  const [matrixShape, setMatrixShape] = useState('triangular');
+  const [matrixDisplayMode, setMatrixDisplayMode] = useState('mixto');
   const [selectedPaletteId, setSelectedPaletteId] = useState('minimalist'); 
   const [customPalette, setCustomPalette] = useState(null);
   const [extractedColors, setExtractedColors] = useState([]);
@@ -188,7 +190,7 @@ export default function App() {
   const addSpace = (e) => { e.preventDefault(); const name = e.target.elements.spaceName.value, area = parseFloat(e.target.elements.spaceArea.value) || 10, zone = e.target.elements.spaceZone.value, subzone = e.target.elements.spaceSubzone.value || name; if (!name.trim()) return; setSpaces([...spaces, { id: generateId(), name, area, zone, subzone, x: 200, y: 200, w: 120, h: 80, pinned: false }]); e.target.reset(); };
   
   const getRelation = (id1, id2) => matrix[[id1, id2].sort().join('-')] || 0;
-  const cycleRelation = (id1, id2) => { const key = [id1, id2].sort().join('-'); const current = matrix[key] || 0; setMatrix(prev => ({ ...prev, [key]: current === 0 ? 1 : current === 1 ? 3 : 0 })); };
+  const cycleRelation = (id1, id2) => { const key = [id1, id2].sort().join('-'); const current = matrix[key] || 0; setMatrix(prev => ({ ...prev, [key]: current === 0 ? 1 : current === 1 ? 2 : current === 2 ? 3 : 0 })); };
   const handleSpacePositionUpdate = (id, newX, newY) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, x: newX, y: newY } : s));
   const handleSpaceSizeUpdate = (id, newW, newH) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, w: Math.max(50, newW), h: Math.max(50, newH) } : s));
 
@@ -246,11 +248,11 @@ export default function App() {
         <header className="workspace-header"><div className="breadcrumb"><span>ESPACIO DE TRABAJO</span><span>/</span><strong>{activeModule.label}</strong></div><div className="workspace-label"><span className="status-dot"/>Proyecto de ejemplo<span className="header-initial">AF</span></div></header>
         <div className="module-stage" key={activeTab}>
         {activeTab === 'spaces' && <SpacesView spaces={spaces} addSpace={addSpace} removeSpace={removeSpace} handleSpaceUpdate={handleSpaceUpdate} colorMode={colorMode} setColorMode={setColorMode} getSpaceColor={getSpaceColor} currentPalette={currentPalette} onExcelImport={handleExcelImport} importPreviewData={importPreviewData} importHeaders={importHeaders} importMapping={importMapping} setImportMapping={setImportMapping} confirmImport={confirmImport} cancelImport={() => setImportPreviewData(null)} importSheetNames={importSheetNames} selectedSheet={selectedSheet} onSheetChange={(e) => processExcelSheet(importWorkbook, e.target.value)} setSpaces={setSpaces} isGeneratingAI={isGeneratingAI} setIsGeneratingAI={setIsGeneratingAI} />}
-        {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix} />}
+        {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix} matrixShape={matrixShape} setMatrixShape={setMatrixShape} matrixDisplayMode={matrixDisplayMode} setMatrixDisplayMode={setMatrixDisplayMode} />}
         {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setSpaces} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize} />}
         {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} showAreaText={showAreaText} setShowAreaText={setShowAreaText} />}
         {activeTab === 'floorplan' && <FloorPlanView spaces={spaces} matrix={matrix} proposals={floorPlanProposals} setProposals={setFloorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} />}
-        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize} />}
+        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize} matrixShape={matrixShape} matrixDisplayMode={matrixDisplayMode} />}
         </div>
         <footer className="workspace-footer"><span><span className="status-dot"/>Sesión local · sin guardado permanente</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
       </main>
@@ -383,61 +385,95 @@ function SpacesView({ spaces, addSpace, removeSpace, handleSpaceUpdate, colorMod
 }
 
 // ==========================================
-// VISTA 2: MATRIZ
+// VISTA 2: MATRIZ FUNCIONAL
 // ==========================================
-function MatrixView({ spaces, getRelation, cycleRelation, currentPalette, getSpaceColor, isGeneratingMatrix, setIsGeneratingMatrix, setMatrix }) {
-  const [isTriangular, setIsTriangular] = useState(true);
-
-  const handleAISolve = () => {
-      setIsGeneratingMatrix(true);
-      setTimeout(() => {
-          const newMatrix = {};
-          for(let i=0; i<spaces.length; i++){
-              for(let j=i+1; j<spaces.length; j++){
-                  const val = Math.random();
-                  if(val > 0.8) newMatrix[[spaces[i].id, spaces[j].id].sort().join('-')] = 3;
-                  else if(val > 0.5) newMatrix[[spaces[i].id, spaces[j].id].sort().join('-')] = 1;
-              }
-          }
-          setMatrix(newMatrix); setIsGeneratingMatrix(false);
-      }, 2000);
+function FunctionalMatrixGraphic({spaces, getRelation, cycleRelation, getSpaceColor, triangular=true, mode='mixto', editable=true}) {
+  const half=28, step=56, n=spaces.length;
+  const width=triangular?(n+1)*half+4:n*step+4, height=n*step+4;
+  const total=space=>spaces.filter(other=>other.id!==space.id && getRelation(space.id,other.id)>0).length;
+  const draw=(i,j)=>{
+    const row=spaces[i],col=spaces[j],same=i===j, value=same?0:getRelation(row.id,col.id);
+    const x=triangular?2+half+(i-j)*half:2+j*step+half;
+    const y=triangular?2+half+(i+j)*half:2+i*step+half;
+    const active=editable&&!same;
+    const label='Relación entre '+row.name+' y '+col.name+': '+value+'. Clic para cambiar.';
+    const points=[x+','+(y-half),(x+half)+','+y,x+','+(y+half),(x-half)+','+y].join(' ');
+    return <g key={row.id+'-'+col.id} className={active?'fm-editable':'fm-fixed'} role={active?'button':undefined} tabIndex={active?0:undefined}
+      aria-label={active?label:undefined} onClick={active?()=>cycleRelation(row.id,col.id):undefined}
+      onKeyDown={active?e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();cycleRelation(row.id,col.id);}}:undefined}>
+      {triangular?<polygon points={points} className="fm-tile"/>:<rect x={x-half} y={y-half} width={step} height={step} className="fm-tile"/>}
+      {same&&<circle cx={x} cy={y} r="2.5" fill="#b7bbb7"/>}
+      {!same&&value>0&&mode!=='numero'&&<circle cx={x} cy={y} r={value===1?14:value===2?17:19}
+        fill={value===3?'#454a47':getSpaceColor(row)} opacity={value===1?.26:value===2?.46:1}/>}
+      {!same&&value>0&&mode!=='grafico'&&<text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+        fontFamily="IBM Plex Mono, monospace" fontSize="16" fontWeight="700" pointerEvents="none"
+        fill={mode!=='numero'&&value===3?'#fff':'#252924'}>{value}</text>}
+      {active&&<title>{label}</title>}
+    </g>;
   };
-
-  if (spaces.length < 2) return <div className="p-8 text-center text-[#73736c] h-full">Agrega espacios primero.</div>;
-  return (
-    <div className="p-8 h-full overflow-y-auto custom-scrollbar">
-      <div className="max-w-5xl mx-auto">
-        <header className="mb-8 flex justify-between items-end bg-[#f0f0eb]/80 p-6 rounded-2xl border border-[#ddddd5]">
-          <div><h2 className="text-3xl font-light text-[#20201c] tracking-wide">Matriz de <span className="font-bold text-[#292925]">Adyacencias</span></h2></div>
-          <div className="flex items-center gap-4">
-             <button title="Demostración aleatoria, sin IA ni evaluación de relaciones. Sustituye la matriz actual." onClick={handleAISolve} disabled={isGeneratingMatrix} className="px-4 py-2 bg-[#59594e]/20 text-[#59594e] border border-[#59594e]/40 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-[#59594e]/30 transition-all disabled:opacity-50">
-                 {isGeneratingMatrix ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} MATRIZ ALEATORIA · DEMO
-             </button>
-             <button onClick={() => setIsTriangular(!isTriangular)} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${isTriangular ? 'bg-[#292925]/10 text-[#292925] border-[#292925]/30' : 'bg-[#f6f6f2] text-[#73736c] border-[#ddddd5] hover:text-[#20201c]'}`}>FORMA: {isTriangular ? 'TRIANGULAR' : 'CUADRADA'}</button>
-          </div>
-        </header>
-        <div className="overflow-x-auto pb-8 bg-[#ffffff] p-6 rounded-2xl border border-[#ddddd5] shadow-xl inline-block">
-          <table className="border-collapse mx-auto">
-            <thead><tr><th className="p-2 border border-transparent"></th>{spaces.map((s, i) => (<th key={s.id} className="p-2 border-0"><div className="h-32 w-10 relative"><span className="absolute bottom-4 left-1/2 -translate-x-1/2 -rotate-45 whitespace-nowrap text-[10px] font-bold uppercase" style={{color: getSpaceColor(s)}}>{i + 1}. {s.name.substring(0, 15)}</span></div></th>))}</tr></thead>
-            <tbody>
-              {spaces.map((row, rowIndex) => (
-                <tr key={row.id}>
-                  <td className={`p-3 text-right text-[10px] uppercase font-bold pr-4 whitespace-nowrap border-[#ddddd5]/50 ${isTriangular ? 'border-r' : 'border'}`} style={{color: getSpaceColor(row)}}>{rowIndex + 1}. {row.name}</td>
-                  {spaces.map((col, colIndex) => {
-                    if (colIndex === rowIndex) return <td key={col.id} className={`p-1 ${isTriangular ? 'border-0 bg-transparent' : 'border border-[#ddddd5]/50 bg-[#f6f6f2]/50'}`}></td>;
-                    if (isTriangular && colIndex > rowIndex) return <td key={col.id} className="p-1 border-0 bg-transparent"></td>;
-                    const val = getRelation(row.id, col.id); let bgCol = 'transparent', textCol = 'transparent', borderCol = 'transparent';
-                    if (val === 3) { bgCol = `${getSpaceColor(row)}30`; textCol = getSpaceColor(row); borderCol = textCol; } if (val === 1) { bgCol = `${getSpaceColor(col)}15`; textCol = getSpaceColor(col); borderCol = textCol; }
-                    return (<td key={col.id} className="p-1 border border-[#ddddd5]/50 text-center"><button aria-label={`Relación entre ${row.name} y ${col.name}: ${val}. Clic para cambiar.`} onClick={() => cycleRelation(row.id, col.id)} className="w-10 h-10 rounded-lg border mx-auto font-mono text-sm transition-all hover:bg-[#f6f6f2]/80" style={{backgroundColor: bgCol, color: textCol, borderColor: borderCol}}>{val === 0 ? '-' : val}</button></td>);
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  return <div className="fm-sheet" aria-label="Matriz funcional arquitectónica">
+    <div className="fm-rooms">
+      <div className="fm-column-head"><span>N.º / RECINTO ARQUITECTÓNICO</span><span>ÁREA</span><span title="Relaciones activas">Σ</span></div>
+      {spaces.map((room,i)=><div key={room.id} className="fm-room" style={{borderLeftColor:getSpaceColor(room)}}>
+        <span className="fm-room-tint" aria-hidden="true" style={{backgroundColor:getSpaceColor(room)}}/>
+        <span className="fm-room-name" title={room.name}>{i+1}. {room.name}</span>
+        <span className="fm-room-area">{Number(room.area||0).toLocaleString('es-PE',{maximumFractionDigits:1})} m²</span>
+        <span className="fm-room-total">{total(room)}</span>
+      </div>)}
     </div>
-  );
+    <div className="fm-plot">
+      <div className="fm-plot-head">RELACIONES ENTRE RECINTOS</div>
+      <svg className="fm-svg" width={width} height={height} viewBox={'0 0 '+width+' '+height} role="group"
+        aria-label={triangular?'Matriz triangular cerrada':'Matriz cuadrada'}>
+        {spaces.flatMap((room,i)=>Array.from({length:triangular?i+1:n},(_,j)=>draw(i,j)))}
+        {triangular?<path className="fm-perimeter" pointerEvents="none"
+          d={'M '+(half+2)+' 2 L '+((n+1)*half+2)+' '+(n*half+2)+' L '+(half+2)+' '+(2*n*half+2)+' L 2 '+((2*n-1)*half+2)+' L 2 '+(half+2)+' Z'}/>
+          :<rect className="fm-perimeter" pointerEvents="none" x="2" y="2" width={n*step} height={n*step}/>}
+      </svg>
+    </div>
+  </div>;
+}
+
+function MatrixView({spaces,getRelation,cycleRelation,getSpaceColor,isGeneratingMatrix,setIsGeneratingMatrix,setMatrix,matrixShape,setMatrixShape,matrixDisplayMode,setMatrixDisplayMode}) {
+  const triangular=matrixShape==='triangular';
+  const randomize=()=>{
+    if(!window.confirm('La demostración aleatoria sustituirá las relaciones actuales. ¿Continuar?'))return;
+    setIsGeneratingMatrix(true);
+    setTimeout(()=>{
+      const next={};
+      for(let i=0;i<spaces.length;i++)for(let j=i+1;j<spaces.length;j++){
+        const r=Math.random(),key=[spaces[i].id,spaces[j].id].sort().join('-');
+        if(r>.8)next[key]=3;else if(r>.57)next[key]=2;else if(r>.35)next[key]=1;
+      }
+      setMatrix(next);setIsGeneratingMatrix(false);
+    },300);
+  };
+  if(spaces.length<2)return <div className="p-8 text-center">Agrega al menos dos espacios para construir la matriz.</div>;
+  return <div className="fm-screen custom-scrollbar">
+    <header className="fm-header"><div><span className="fm-eyebrow">DISEÑO DE RELACIONES ESPACIALES</span>
+      <h2>Matriz <strong>funcional</strong></h2><p>Haz clic en las celdas para editar las relaciones entre espacios.</p></div>
+      <button className="fm-demo-button" type="button" onClick={randomize} disabled={isGeneratingMatrix}
+        title="Demostración aleatoria; no utiliza IA y reemplaza las relaciones">{isGeneratingMatrix?<Loader2 size={15} className="animate-spin"/>:<Sparkles size={15}/>} MATRIZ ALEATORIA · DEMO</button>
+    </header>
+    <div className="fm-toolbar">
+      <div className="fm-control"><span>GEOMETRÍA</span><button type="button" className="fm-mode-button"
+        aria-label={'FORMA: '+(triangular?'TRIANGULAR':'CUADRADA')}
+        onClick={()=>setMatrixShape(triangular?'cuadrada':'triangular')}><Grid size={15}/>{triangular?'Triangular':'Cuadrada'}<Shuffle size={13}/></button></div>
+      <fieldset className="fm-control fm-choices"><legend>VISUALIZACIÓN</legend>
+        {[['grafico','Solo gráfico'],['numero','Solo número'],['mixto','Mixto']].map(([id,label])=>
+          <button type="button" key={id} aria-pressed={matrixDisplayMode===id}
+            className={'fm-mode-button '+(matrixDisplayMode===id?'is-selected':'')}
+            onClick={()=>setMatrixDisplayMode(id)}>{label}</button>)}
+      </fieldset>
+    </div>
+    <div className="fm-canvas-scroll"><FunctionalMatrixGraphic spaces={spaces} getRelation={getRelation}
+      cycleRelation={cycleRelation} getSpaceColor={getSpaceColor} triangular={triangular} mode={matrixDisplayMode}/></div>
+    <div className="fm-legend"><span><i className="fm-legend-dot fm-dot-one"/>1 · Indirecta</span>
+      <span><i className="fm-legend-dot fm-dot-two"/>2 · Intermedia</span>
+      <span><i className="fm-legend-dot fm-dot-three"/>3 · Directa</span>
+      <span>0 · Sin relación</span><span className="fm-help">Clic: 0 → 1 → 2 → 3 → 0</span>
+    </div>
+  </div>;
 }
 
 // ==========================================
@@ -746,7 +782,7 @@ function FloorPlanView({ spaces, matrix, proposals, setProposals, currentPalette
 // ==========================================
 // VISTA 6: ESTUDIO DE IMPRESIÓN
 // ==========================================
-function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, shuffleCustomPalette, customBgMode, setCustomBackground, showAreaText, topologyTextPos, topologyTextSize }) {
+function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, shuffleCustomPalette, customBgMode, setCustomBackground, showAreaText, topologyTextPos, topologyTextSize, matrixShape, matrixDisplayMode }) {
   const [selectedViews, setSelectedViews] = useState({ matrix: true, topology: true, flowdiagram: true }); const [isExporting, setIsExporting] = useState(false); const [pageFormat, setPageFormat] = useState({ w: 420, h: 297 }); const fileInputRef = useRef(null);
   const toggleView = (v) => setSelectedViews(prev => ({ ...prev, [v]: !prev[v] }));
   const getBBox = (mode) => { let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; spaces.forEach(s => { if (mode === 'flow') { minX = Math.min(minX, s.x); minY = Math.min(minY, s.y); maxX = Math.max(maxX, s.x + (s.w || 100)); maxY = Math.max(maxY, s.y + (s.h || 100)); } else { const rad = Math.max(30, Math.sqrt(s.area || 10) * 8); minX = Math.min(minX, s.x - rad); minY = Math.min(minY, s.y - rad); maxX = Math.max(maxX, s.x + rad); maxY = Math.max(maxY, s.y + rad); } }); if(minX === Infinity) return "0 0 800 600"; const pad = 100; return `${minX - pad} ${minY - pad} ${maxX - minX + pad*2} ${maxY - minY + pad*2}`; };
@@ -768,22 +804,8 @@ function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpace
   };
 
   const MatrixContent = () => (
-     <table className="border-collapse mx-auto" style={{fontFamily: "'DM Sans', sans-serif"}}>
-        <thead><tr><th className="p-2"></th>{spaces.map((s, i) => (<th key={s.id} className="p-2 border-0"><div className="h-32 w-10 relative"><span className="absolute bottom-4 left-1/2 -translate-x-1/2 -rotate-45 whitespace-nowrap text-xs uppercase font-bold" style={{color: getSpaceColor(s)}}>{i + 1}. {s.name}</span></div></th>))}</tr></thead>
-        <tbody>
-          {spaces.map((row, rowIndex) => (
-            <tr key={row.id}>
-              <td className="p-3 text-right text-xs uppercase pr-4 font-bold whitespace-nowrap" style={{color: getSpaceColor(row), borderRight: `2px solid ${currentPalette.lines}`}}>{rowIndex + 1}. {row.name}</td>
-              {spaces.map((col, colIndex) => {
-                if (colIndex === rowIndex || colIndex > rowIndex) return <td key={col.id} className="p-1 border-0"></td>;
-                const val = getRelation(row.id, col.id); let bgCol = 'transparent', textCol = currentPalette.lines;
-                if (val === 3) { bgCol = `${getSpaceColor(row)}30`; textCol = getSpaceColor(row); } if (val === 1) { bgCol = `${getSpaceColor(col)}15`; textCol = getSpaceColor(col); }
-                return (<td key={col.id} className="p-1 border" style={{borderColor: currentPalette.lines}}><div className="w-10 h-10 flex items-center justify-center font-bold" style={{backgroundColor: val===0?'transparent':bgCol, color: val===0?currentPalette.lines:textCol}}>{val===0?'-':val}</div></td>);
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <FunctionalMatrixGraphic spaces={spaces} getRelation={getRelation} getSpaceColor={getSpaceColor}
+      triangular={matrixShape === 'triangular'} mode={matrixDisplayMode} editable={false} />
   );
 
   const FlowContent = () => (
@@ -854,7 +876,7 @@ function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpace
 
   return (
     <div className="flex flex-col h-full bg-[#f6f6f2] overflow-hidden">
-      <div id="print-node-matrix" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="transform scale-125"><MatrixContent /></div></div>
+      <div id="print-node-matrix" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="fm-print-wrapper"><MatrixContent /></div></div>
       <div id="print-node-flowdiagram" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="absolute inset-0 opacity-10" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `40px 40px` }}></div><FlowContent /></div>
       <div id="print-node-topology" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><TopologyContent /></div>
       
