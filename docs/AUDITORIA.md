@@ -6,6 +6,8 @@ El archivo es un componente React escrito en JSX con extensión `.tsx`; necesita
 
 La revisión posterior centrada en la matriz triangular y la navegación, con correcciones de los gestos de cámara, está en [REVISION_DIAGRAMAS.md](REVISION_DIAGRAMAS.md). Los hallazgos de esta auditoría general sobre el motor y los datos siguen pendientes.
 
+Actualización: las claves del ejemplo inicial se normalizaron en la aplicación actual y la matriz utiliza la escala 0/1/2. La revisión de sus puntas y sumatorias está en [MATRIZ_PENTAGONAL.md](MATRIZ_PENTAGONAL.md). Los diagnósticos sobre el archivo original archivado siguen siendo válidos para esa copia.
+
 ## Qué existe
 
 | Módulo | Comportamiento actual |

@@ -27,6 +27,8 @@ Con el servidor de desarrollo activo, ejecutar:
 ```sh
 npm run test:smoke
 npm run test:diagrams
+npm run test:matrix
+npm run test:matrix-ui
 ```
 
 Usa Chromium del sistema si existe; alternativamente instalarlo con `npx playwright install chromium`. Se pueden configurar `BROWSER_PATH`, `BASE_URL` y `ARTIFACT_DIR`. El resultado y las capturas se escriben por defecto en `/tmp/arquifacil-validation`.
@@ -49,3 +51,5 @@ Este diagnóstico termina con **código 1** porque reproduce defectos reales del
 Resultados y límites de las pruebas: [VALIDACION.md](docs/VALIDACION.md).
 
 Revisión específica de la matriz triangular, controles de cámara y correcciones de desplazamiento: [REVISION_DIAGRAMAS.md](docs/REVISION_DIAGRAMAS.md).
+
+La matriz actual integra las puntas de los recintos y muestra la suma de relaciones dentro de cada una: [MATRIZ_PENTAGONAL.md](docs/MATRIZ_PENTAGONAL.md).

@@ -1,0 +1,32 @@
+{
+  "checks": [
+    "55 relaciones editables sin añadir una diagonal separada",
+    "Se muestran las diez relaciones declaradas en el ejemplo",
+    "Cada recinto muestra la suma de pesos, no el número de conexiones",
+    "La suma de filas cuenta cada par exactamente dos veces",
+    "Se eliminó la columna de identificadores grises independientes",
+    "La punta contiene por completo el círculo de sumatoria",
+    "Los pentágonos no tapan las celdas de relaciones",
+    "Editar 2 → 0 actualiza las dos sumatorias",
+    "Editar 0 → 1 actualiza las dos sumatorias",
+    "Editar 1 → 2 actualiza las dos sumatorias",
+    "Editar con Espacio actualiza Σ",
+    "Editar con Enter conserva el ciclo 0 → 1 → 2",
+    "El modo gráfico mantiene la sumatoria visible",
+    "El modo gráfico oculta solo los números de las relaciones",
+    "El modo numérico conserva las diez relaciones",
+    "La matriz cuadrada conserva sus 110 celdas",
+    "La matriz cuadrada conserva la misma suma de pesos",
+    "La leyenda sigue siendo arrastrable",
+    "La fila y su sumatoria heredan el color de zona",
+    "La lámina usa los mismos pentágonos y sumatorias",
+    "La lámina conserva la suma de Hall",
+    "La exportación PNG genera una lámina con contenido",
+    "En móvil la matriz no desborda la página",
+    "En móvil se puede desplazar horizontalmente la matriz",
+    "Con dos recintos sigue existiendo un solo par",
+    "Con dos recintos la cabecera cabe en la lámina",
+    "Sin excepciones JavaScript durante la edición y exportación"
+  ],
+  "errors": []
+}

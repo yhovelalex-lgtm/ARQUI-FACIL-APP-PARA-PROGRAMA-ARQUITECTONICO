@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "test:smoke": "node scripts/smoke.mjs",
     "test:matrix": "node --test scripts/matrix-unit.mjs",
+    "test:matrix-ui": "node scripts/matrix-ui.mjs",
     "test:diagrams": "node scripts/diagrams.mjs",
     "audit:original": "node scripts/audit-original.mjs"
   },

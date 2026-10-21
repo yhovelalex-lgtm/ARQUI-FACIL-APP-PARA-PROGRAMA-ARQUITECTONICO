@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { RELATION, relationKey, nextRelation, relationDasharray, matrixLayout, matrixCell, matrixOutline, matrixRowShape } from './matrix-geometry.js';
+import { RELATION, relationKey, nextRelation, relationDasharray, relationValue, relationTotal, matrixLayout, matrixCell, matrixOutline, matrixRowShape } from './matrix-geometry.js';
 import { Plus, Trash2, Grid, Network, ListPlus, Play, BrainCircuit, Sparkles, Loader2, Settings2, Square, LayoutTemplate, Printer, FileSpreadsheet, ZoomIn, Palette, ImagePlus, Shuffle, MoveRight } from 'lucide-react';
 
 const ZONES = { social: { id: 'social', label: 'Pública / Principal' }, private: { id: 'private', label: 'Privada / Anexos' }, service: { id: 'service', label: 'Servicios' }, circulation: { id: 'circulation', label: 'Circulación' } };
@@ -102,7 +102,16 @@ export default function App() {
   ]);
   
   const [matrix, setMatrix] = useState({
-    'hall-biblio': 2, 'hall-recep': 2, 'hall-esc1': 2, 'recep-serv': 1, 'recep-cine': 2, 'recep-cafe': 2, 'recep-exhib': 2, 'exhib-audi': 2, 'exhib-esc2': 2, 'cafe-scene': 3
+    [relationKey('hall', 'biblio')]: RELATION.DIRECT,
+    [relationKey('hall', 'recep')]: RELATION.DIRECT,
+    [relationKey('hall', 'esc1')]: RELATION.DIRECT,
+    [relationKey('recep', 'serv')]: RELATION.INDIRECT,
+    [relationKey('recep', 'cine')]: RELATION.DIRECT,
+    [relationKey('recep', 'cafe')]: RELATION.DIRECT,
+    [relationKey('recep', 'exhib')]: RELATION.DIRECT,
+    [relationKey('exhib', 'audi')]: RELATION.DIRECT,
+    [relationKey('exhib', 'esc2')]: RELATION.DIRECT,
+    [relationKey('cafe', 'scene')]: RELATION.DIRECT,
   });
 
   const [floorPlanProposals, setFloorPlanProposals] = useState([]);
@@ -394,10 +403,9 @@ function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceC
   const { roomWidth, rowHeight, headerHeight, half } = layout;
   const [dragLegend, setDragLegend] = useState(false);
   const legendDrag = useRef(null);
-  const total = room => spaces.filter(other => other.id !== room.id && getRelation(room.id, other.id) > 0).length;
   const diamond = (i, j) => {
     const row = spaces[i], col = spaces[j], same = i === j;
-    const value = same ? 0 : Math.min(2, Math.max(0, getRelation(row.id, col.id)));
+    const value = same ? 0 : relationValue(getRelation(row.id, col.id));
     const { x, y } = matrixCell(layout, i, j);
     const active = editable && !same;
     const label = 'Relación entre ' + row.name + ' y ' + col.name + ': ' + value + '. Clic para cambiar.';
@@ -420,32 +428,29 @@ function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceC
   return <div className="fm-sheet" style={{width:layout.width, minWidth:layout.width}} aria-label="Matriz funcional arquitectónica">
     <svg className="fm-svg" width={layout.width} height={layout.height} viewBox={'0 0 '+layout.width+' '+layout.height}
       aria-label={triangular ? 'Matriz triangular alineada y cerrada' : 'Matriz cuadrada'}>
-      <rect x="1" y="1" width={roomWidth-2} height={headerHeight-2} rx="11" fill="#f4f6f2" stroke="#dce2db" />
-      <text x={roomWidth+12} y="33" className="fm-head-text">RELACIONES ENTRE RECINTOS</text>
+      <rect x="1" y="1" width={roomWidth+(triangular?rowHeight:0)-2} height={headerHeight-2} rx="11" fill="#f4f6f2" stroke="#dce2db" />
+      <text x={roomWidth+(triangular?rowHeight:0)+12} y="33" className="fm-head-text">RELACIONES ENTRE RECINTOS</text>
       <text x="18" y="33" className="fm-head-text">N.º / RECINTO ARQUITECTÓNICO</text>
       <text x={roomWidth-83} y="33" textAnchor="middle" className="fm-head-text">ÁREA</text>
-      <text x={roomWidth-22} y="33" textAnchor="middle" className="fm-head-text">Σ</text>
+      <text x={triangular?roomWidth+half:roomWidth-half} y="33" textAnchor="middle" className="fm-head-text"><title>Suma de los valores de relación: 0, 1 y 2.</title>Σ</text>
       {spaces.map((room,i)=>{
         const top=layout.rowStart+i*rowHeight, mid=top+half, color=getSpaceColor(room);
-        return <g key={'room-'+room.id}>
-          <path d={matrixRowShape(layout,i)} fill="#fff" stroke="#d5ded7" strokeWidth="1" />
-          <path d={matrixRowShape(layout,i)} fill={color} fillOpacity=".19" pointerEvents="none" />
+        const sum=relationTotal(room.id,spaces,getRelation), summaryX=triangular?roomWidth+half:roomWidth-half;
+        return <g key={'room-'+room.id} className="fm-room-row" data-room-id={room.id}>
+          <path className="fm-room-shape" d={matrixRowShape(layout,i)} fill="#fff" stroke="#d5ded7" strokeWidth="1" />
+          <path d={matrixRowShape(layout,i)} fill={color} fillOpacity=".13" pointerEvents="none" />
           <rect x="0" y={top} width="5" height={rowHeight} fill={color} opacity=".7" />
           <text x="18" y={mid} dominantBaseline="middle" className="fm-row-label">
             {(i+1)+'. '+(room.name.length>39 ? room.name.slice(0,37)+'…':room.name)}
           </text>
           <text x={roomWidth-96} y={mid} textAnchor="end" dominantBaseline="middle"
             className="fm-row-info">{Number(room.area||0).toLocaleString('es-PE',{maximumFractionDigits:1})} m²</text>
-          <text x={roomWidth-58} y={mid} textAnchor="middle" dominantBaseline="middle"
-            className="fm-row-total">{total(room)}</text>
-        </g>;
-      })}
-      {triangular && spaces.map((room,i)=>{
-        const {x,y}=matrixCell(layout,i,i);
-        return <g key={'anchor-'+room.id} aria-label={'Identificador de '+room.name}>
-          <polygon points={[[x,y-half],[x+half,y],[x,y+half],[x-half,y]].map(p=>p.join(',')).join(' ')}
-            fill={getSpaceColor(room)} fillOpacity=".19" stroke="#cbd3cd" strokeWidth="1.1"/>
-          <circle cx={x} cy={y} r="3" fill="#8d9b91"/>
+          <g className="fm-row-summary" role="img" aria-label={'Sumatoria de relaciones de '+room.name+': '+sum}>
+            <title>{'Σ '+room.name+': '+sum+' (suma de relaciones 0, 1 y 2)'}</title>
+            {triangular && <circle cx={summaryX} cy={mid} r="14" fill="#fff" stroke={color} strokeWidth="1.6" />}
+            <text x={summaryX} y={mid} textAnchor="middle" dominantBaseline="central"
+              className="fm-row-total">{sum}</text>
+          </g>
         </g>;
       })}
       {triangular

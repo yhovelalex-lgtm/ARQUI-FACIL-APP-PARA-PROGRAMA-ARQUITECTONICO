@@ -11,6 +11,7 @@ Entorno: Node.js 24.19, npm 11.9 y Chromium 154 sobre Linux. Fecha: 20 de octubr
 | Dependencias npm | `npm audit` sin vulnerabilidades conocidas notificadas al ejecutar. No cubre el script remoto de SheetJS ni defectos de aplicación. |
 | Navegador | 27 comprobaciones de interfaz completadas: alta, área, borrado, ciclo 0/1/3, dos formas de matriz, controles de topología, arrastre de caja, recorridos y generación de seis tarjetas. La calidad de las plantas no queda validada. |
 | Revisión posterior de matriz y navegación | `npm run test:diagrams`: 36 comprobaciones completadas tras corregir la pérdida de desplazamiento y el conflicto entre gestos de cámara y edición. Detalles en [REVISION_DIAGRAMAS.md](REVISION_DIAGRAMAS.md). |
+| Puntas pentagonales y sumatorias | Siete pruebas de geometría y sumas, y 27 comprobaciones de interfaz y exportación PNG. Se normalizaron las diez claves de relación del ejemplo. Detalles en [MATRIZ_PENTAGONAL.md](MATRIZ_PENTAGONAL.md). |
 | Exportaciones | Se descargaron 1 PDF, 3 PNG y 3 JPG con contenido. Revisada visualmente una página rasterizada del PDF. |
 | Calidad del PDF | **Falla**: cinco páginas para tres vistas. No se ha certificado escala, fidelidad de todas las páginas ni impresión profesional. |
 | Vista móvil | Programa comprobado a 390 × 844 sin desbordamiento horizontal de la página ni del formulario. Los diagramas y las tablas necesitan navegación propia; no es una auditoría exhaustiva de dispositivos. |

@@ -11,7 +11,7 @@ La forma triangular está en el módulo **Matriz funcional**, no en el diagrama 
 - Editar una relación en la cuadrada actualiza ambas celdas simétricas.
 - Alternar entre formas conserva el valor editado.
 
-Se comprobó el comportamiento existente, sin cambiar su presentación ni la lógica de relaciones. La normalización incorrecta de siete claves del ejemplo inicial, documentada en la auditoría general, sigue pendiente y es independiente de que la forma triangular se dibuje correctamente.
+Se comprobó el comportamiento existente, sin cambiar su presentación ni la lógica de relaciones en esa revisión. La normalización de las siete claves del ejemplo inicial se resolvió posteriormente junto con las [puntas y sumatorias de la matriz](MATRIZ_PENTAGONAL.md).
 
 ## Navegación: errores reproducidos y corregidos
 
