@@ -46,13 +46,13 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
   if (!spaces.length) return null;
   const h = 39, top = 52, left = 330, width = Math.max(785, left + h * spaces.length / 2 + 255), height = top + spaces.length * h + 34;
   const relColor = (value) => value === 3 ? colors.direct : value === 1 ? colors.indirect : colors.muted;
-  const clickPair = (a, b) => { console.info('DEBUG clickPair',a,b,Boolean(onCycleRelation)); return onCycleRelation && onCycleRelation(a, b); };
+  const clickPair = (a, b) => onCycleRelation && onCycleRelation(a, b);
   const makeCell = (a, b, x, y, diamond = false) => {
     const value = getRelation(a.id, b.id);
     const tone = relColor(value);
     const label = 'Relación entre ' + a.name + ' y ' + b.name + ': ' + value + '. Clic para cambiar.';
     return <g key={relationKey(a.id, b)} role={onCycleRelation ? 'button' : undefined} tabIndex={onCycleRelation ? 0 : undefined} aria-label={onCycleRelation ? label : undefined}
-      onClick={() => clickPair(a.id, b)} onKeyDown={event => { if (onCycleRelation && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); clickPair(a.id, b); } }}
+      onClick={() => clickPair(a.id, b.id)} onKeyDown={event => { if (onCycleRelation && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); clickPair(a.id, b.id); } }}
       className={onCycleRelation ? 'af-matrix-cell-interactive' : ''}>
       {diamond
         ? <polygon points={x + ',' + (y-h/2) + ' ' + (x+h/2) + ',' + y + ' ' + x + ',' + (y+h/2) + ' ' + (x-h/2) + ',' + y} fill={value === 0 ? withAlpha(palette.bg, 0.90) : withAlpha(tone, value === 3 ? .22 : .10)} stroke={value === 0 ? palette.lines : tone} strokeWidth={value === 3 ? 1.75 : .8} />
