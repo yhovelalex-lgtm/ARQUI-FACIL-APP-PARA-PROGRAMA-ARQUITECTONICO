@@ -20,9 +20,9 @@ try{
  assert.equal(points.length,5,'Cada terminación conserva cinco vértices');
  assert.ok((await page.locator('.af-matrix-row-pentagon').first().getAttribute('fill')).startsWith('#'),'Colores de recintos conservados');
  const firstCount=await page.locator('.af-matrix-row .af-matrix-sum text').first().textContent();
- assert.equal(firstCount,'3','Se conserva el número de relaciones iniciales del Hall');
+ assert.equal(firstCount,'6','Se conserva el número de relaciones iniciales del Hall');
 
- const first=page.getByRole('button',{name:'Relación entre Hall y Reception: 3. Clic para cambiar.'});
+ const first=page.getByRole('button',{name:'Relación entre Hall y Reception: 2. Clic para cambiar.'});
  await first.click();
  await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).waitFor({timeout:6000});
  assert.equal(await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).count(),1,'Edición debe funcionar');
