@@ -8,6 +8,8 @@ async function module(name){await page.getByRole('navigation').getByRole('button
 const url=process.env.BASE_URL||'http://127.0.0.1:5173/';
 try{
  await page.goto(url);await module('Matriz funcional');
+ assert.equal(await page.getByRole('combobox',{name:'Paleta de colores'}).inputValue(),'minimalist','Paleta minimalista por defecto');
+ assert.equal(await page.locator('.af-matrix-board').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(251, 251, 248)','Fondo inicial claro en matriz');
  const matrix=page.getByRole('group',{name:'Matriz triangular romboidal de relaciones'});
  await matrix.waitFor();
  assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),55,'Triangular debe tener 55 pares');
