@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { RELATION, relationKey, nextRelation, relationDasharray, matrixLayout, matrixCell, matrixOutline } from './matrix-geometry.js';
 import { Plus, Trash2, Grid, Network, ListPlus, Play, BrainCircuit, Sparkles, Loader2, Settings2, Square, LayoutTemplate, Printer, FileSpreadsheet, ZoomIn, Palette, ImagePlus, Shuffle, MoveRight } from 'lucide-react';
 
 const ZONES = { social: { id: 'social', label: 'Pública / Principal' }, private: { id: 'private', label: 'Privada / Anexos' }, service: { id: 'service', label: 'Servicios' }, circulation: { id: 'circulation', label: 'Circulación' } };
@@ -46,7 +47,7 @@ const FloorPlanEngine = {
     for (let i = 0; i < layout.length; i++) {
       for (let j = i + 1; j < layout.length; j++) {
         const a = layout[i], b = layout[j]; const isAdjacent = FloorPlanEngine.shareWall(a, b); const weight = matrix[[a.id, b.id].sort().join('-')] || 0;
-        if (weight === 3) { if (isAdjacent) score += 150; else score -= 150; } else if (weight === 1) { if (isAdjacent) score += 40; } else if (weight === 0) { if (isAdjacent) score -= 15; }
+        if (weight === 2) { if (isAdjacent) score += 150; else score -= 150; } else if (weight === 1) { if (isAdjacent) score += 40; } else if (weight === 0) { if (isAdjacent) score -= 15; }
         if (isAdjacent && (a.zone === 'circulation' || b.zone === 'circulation')) { score += 60; }
       }
     }
@@ -101,7 +102,7 @@ export default function App() {
   ]);
   
   const [matrix, setMatrix] = useState({
-    'hall-biblio': 3, 'hall-recep': 3, 'hall-esc1': 3, 'recep-serv': 1, 'recep-cine': 3, 'recep-cafe': 3, 'recep-exhib': 3, 'exhib-audi': 3, 'exhib-esc2': 3, 'cafe-scene': 3
+    'hall-biblio': 2, 'hall-recep': 2, 'hall-esc1': 2, 'recep-serv': 1, 'recep-cine': 2, 'recep-cafe': 2, 'recep-exhib': 2, 'exhib-audi': 2, 'exhib-esc2': 2, 'cafe-scene': 3
   });
 
   const [floorPlanProposals, setFloorPlanProposals] = useState([]);
@@ -189,8 +190,8 @@ export default function App() {
   const removeSpace = (id) => { setSpaces(spaces.filter(s => s.id !== id)); setMatrix(prev => { const nm = {...prev}; Object.keys(nm).forEach(k => { if(k.includes(id)) delete nm[k]; }); return nm; }); };
   const addSpace = (e) => { e.preventDefault(); const name = e.target.elements.spaceName.value, area = parseFloat(e.target.elements.spaceArea.value) || 10, zone = e.target.elements.spaceZone.value, subzone = e.target.elements.spaceSubzone.value || name; if (!name.trim()) return; setSpaces([...spaces, { id: generateId(), name, area, zone, subzone, x: 200, y: 200, w: 120, h: 80, pinned: false }]); e.target.reset(); };
   
-  const getRelation = (id1, id2) => matrix[[id1, id2].sort().join('-')] || 0;
-  const cycleRelation = (id1, id2) => { const key = [id1, id2].sort().join('-'); const current = matrix[key] || 0; setMatrix(prev => ({ ...prev, [key]: current === 0 ? 1 : current === 1 ? 2 : current === 2 ? 3 : 0 })); };
+  const getRelation = (id1, id2) => matrix[relationKey(id1, id2)] || 0;
+  const cycleRelation = (id1, id2) => { const key = [id1, id2].sort().join('-'); const current = matrix[key] || 0; setMatrix(prev => ({ ...prev, [key]: nextRelation(current) })); };
   const handleSpacePositionUpdate = (id, newX, newY) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, x: newX, y: newY } : s));
   const handleSpaceSizeUpdate = (id, newW, newH) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, w: Math.max(50, newW), h: Math.max(50, newH) } : s));
 
@@ -387,50 +388,64 @@ function SpacesView({ spaces, addSpace, removeSpace, handleSpaceUpdate, colorMod
 // ==========================================
 // VISTA 2: MATRIZ FUNCIONAL
 // ==========================================
-function FunctionalMatrixGraphic({spaces, getRelation, cycleRelation, getSpaceColor, triangular=true, mode='mixto', editable=true}) {
-  const half=28, step=56, n=spaces.length;
-  const width=triangular?(n+1)*half+4:n*step+4, height=n*step+4;
-  const total=space=>spaces.filter(other=>other.id!==space.id && getRelation(space.id,other.id)>0).length;
-  const draw=(i,j)=>{
-    const row=spaces[i],col=spaces[j],same=i===j, value=same?0:getRelation(row.id,col.id);
-    const x=triangular?2+half+(i-j)*half:2+j*step+half;
-    const y=triangular?2+half+(i+j)*half:2+i*step+half;
-    const active=editable&&!same;
-    const label='Relación entre '+row.name+' y '+col.name+': '+value+'. Clic para cambiar.';
-    const points=[x+','+(y-half),(x+half)+','+y,x+','+(y+half),(x-half)+','+y].join(' ');
-    return <g key={row.id+'-'+col.id} className={active?'fm-editable':'fm-fixed'} role={active?'button':undefined} tabIndex={active?0:undefined}
-      aria-label={active?label:undefined} onClick={active?()=>cycleRelation(row.id,col.id):undefined}
-      onKeyDown={active?e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();cycleRelation(row.id,col.id);}}:undefined}>
-      {triangular?<polygon points={points} className="fm-tile"/>:<rect x={x-half} y={y-half} width={step} height={step} className="fm-tile"/>}
-      {same&&<circle cx={x} cy={y} r="2.5" fill="#b7bbb7"/>}
-      {!same&&value>0&&mode!=='numero'&&<circle cx={x} cy={y} r={value===1?14:value===2?17:19}
-        fill={value===3?'#454a47':getSpaceColor(row)} opacity={value===1?.26:value===2?.46:1}/>}
-      {!same&&value>0&&mode!=='grafico'&&<text x={x} y={y} textAnchor="middle" dominantBaseline="central"
-        fontFamily="IBM Plex Mono, monospace" fontSize="16" fontWeight="700" pointerEvents="none"
-        fill={mode!=='numero'&&value===3?'#fff':'#252924'}>{value}</text>}
-      {active&&<title>{label}</title>}
+function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceColor, triangular = true, mode = 'mixto', editable = true }) {
+  const layout = matrixLayout(spaces.length, triangular);
+  const { roomWidth, rowHeight, headerHeight, half } = layout;
+  const total = room => spaces.filter(other => other.id !== room.id && getRelation(room.id, other.id) > 0).length;
+  const diamond = (i, j) => {
+    const row = spaces[i], col = spaces[j], same = i === j;
+    const value = same ? 0 : getRelation(row.id, col.id);
+    const { x, y } = matrixCell(layout, i, j);
+    const active = editable && !same;
+    const label = 'Relación entre ' + row.name + ' y ' + col.name + ': ' + value + '. Clic para cambiar.';
+    const shape = triangular
+      ? <polygon className="fm-tile" points={[[x,y-half],[x+half,y],[x,y+half],[x-half,y]].map(p=>p.join(',')).join(' ')} />
+      : <rect className="fm-tile" x={x-half} y={y-half} width={rowHeight} height={rowHeight} />;
+    return <g key={row.id + '-' + col.id} className={active ? 'fm-editable' : 'fm-fixed'}
+      role={active ? 'button' : undefined} tabIndex={active ? 0 : undefined}
+      aria-label={active ? label : undefined} onClick={active ? () => cycleRelation(row.id,col.id) : undefined}
+      onKeyDown={active ? e => { if(e.key === 'Enter' || e.key === ' ') {e.preventDefault();cycleRelation(row.id,col.id);} } : undefined}>
+      {shape}
+      {!same && value > 0 && mode !== 'numero' && <circle cx={x} cy={y} r={13.5}
+        fill={value === 2 ? '#424844' : '#9aa79b'} opacity={value === 2 ? 1 : 0.67} />}
+      {!same && value > 0 && mode !== 'grafico' && <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+        fontSize="13" fontWeight="700" fontFamily="IBM Plex Mono, monospace" pointerEvents="none"
+        fill={mode !== 'numero' && value === 2 ? '#fff' : '#252a27'}>{value}</text>}
+      {active && <title>{label}</title>}
     </g>;
   };
-  return <div className="fm-sheet" aria-label="Matriz funcional arquitectónica">
-    <div className="fm-rooms">
-      <div className="fm-column-head"><span>N.º / RECINTO ARQUITECTÓNICO</span><span>ÁREA</span><span title="Relaciones activas">Σ</span></div>
-      {spaces.map((room,i)=><div key={room.id} className="fm-room" style={{borderLeftColor:getSpaceColor(room)}}>
-        <span className="fm-room-tint" aria-hidden="true" style={{backgroundColor:getSpaceColor(room)}}/>
-        <span className="fm-room-name" title={room.name}>{i+1}. {room.name}</span>
-        <span className="fm-room-area">{Number(room.area||0).toLocaleString('es-PE',{maximumFractionDigits:1})} m²</span>
-        <span className="fm-room-total">{total(room)}</span>
-      </div>)}
-    </div>
-    <div className="fm-plot">
-      <div className="fm-plot-head">RELACIONES ENTRE RECINTOS</div>
-      <svg className="fm-svg" width={width} height={height} viewBox={'0 0 '+width+' '+height} role="group"
-        aria-label={triangular?'Matriz triangular cerrada':'Matriz cuadrada'}>
-        {spaces.flatMap((room,i)=>Array.from({length:triangular?i+1:n},(_,j)=>draw(i,j)))}
-        {triangular?<path className="fm-perimeter" pointerEvents="none"
-          d={'M '+(half+2)+' 2 L '+((n+1)*half+2)+' '+(n*half+2)+' L '+(half+2)+' '+(2*n*half+2)+' L 2 '+((2*n-1)*half+2)+' L 2 '+(half+2)+' Z'}/>
-          :<rect className="fm-perimeter" pointerEvents="none" x="2" y="2" width={n*step} height={n*step}/>}
-      </svg>
-    </div>
+  return <div className="fm-sheet" style={{width:layout.width, minWidth:layout.width}} aria-label="Matriz funcional arquitectónica">
+    <svg className="fm-svg" width={layout.width} height={layout.height} viewBox={'0 0 '+layout.width+' '+layout.height}
+      aria-label={triangular ? 'Matriz triangular alineada y cerrada' : 'Matriz cuadrada'}>
+      <rect width={roomWidth} height={headerHeight} fill="#f4f6f2" />
+      <text x="18" y="33" className="fm-head-text">N.º / RECINTO ARQUITECTÓNICO</text>
+      <text x={roomWidth-83} y="33" textAnchor="middle" className="fm-head-text">ÁREA</text>
+      <text x={roomWidth-22} y="33" textAnchor="middle" className="fm-head-text">Σ</text>
+      {spaces.map((room,i)=>{
+        const top=headerHeight+i*rowHeight;
+        return <g key={'room-'+room.id}>
+          <rect x="0" y={top} width={roomWidth} height={rowHeight} fill="#fff" />
+          <rect x="0" y={top} width={roomWidth} height={rowHeight}
+            fill={getSpaceColor(room)} opacity=".15" />
+          <rect x="0" y={top} width="5" height={rowHeight} fill={getSpaceColor(room)} opacity=".56" />
+          <path d={'M 0 '+(top+rowHeight)+' H '+roomWidth} stroke="#e0e5df" fill="none"/>
+          <text x="18" y={top+rowHeight/2} dominantBaseline="middle" className="fm-row-label">
+            {(i+1)+'. '+(room.name.length>39 ? room.name.slice(0,37)+'…':room.name)}
+          </text>
+          <text x={roomWidth-58} y={top+rowHeight/2} textAnchor="end" dominantBaseline="middle"
+            className="fm-row-info">{Number(room.area||0).toLocaleString('es-PE',{maximumFractionDigits:1})} m²</text>
+          <text x={roomWidth-20} y={top+rowHeight/2} textAnchor="middle" dominantBaseline="middle"
+            className="fm-row-total">{total(room)}</text>
+        </g>;
+      })}
+      {triangular
+        ? spaces.flatMap((room,i)=>spaces.slice(i+1).map((col,k)=>diamond(i,i+k+1)))
+        : spaces.flatMap((room,i)=>spaces.map((col,j)=>diamond(i,j)))}
+      <path d={matrixOutline(layout)} className="fm-perimeter" pointerEvents="none" />
+      {triangular && spaces.slice(0,-1).map((room,i)=>
+        <path key={'connector-'+room.id} d={'M '+(roomWidth-5)+' '+(headerHeight+(i+1)*rowHeight)+' H '+roomWidth}
+          stroke="#9fa9a1" strokeWidth="1.6" fill="none" pointerEvents="none"/>)}
+    </svg>
   </div>;
 }
 
@@ -443,7 +458,7 @@ function MatrixView({spaces,getRelation,cycleRelation,getSpaceColor,isGenerating
       const next={};
       for(let i=0;i<spaces.length;i++)for(let j=i+1;j<spaces.length;j++){
         const r=Math.random(),key=[spaces[i].id,spaces[j].id].sort().join('-');
-        if(r>.8)next[key]=3;else if(r>.57)next[key]=2;else if(r>.35)next[key]=1;
+        if(r>.66)next[key]=2;else if(r>.33)next[key]=1;
       }
       setMatrix(next);setIsGeneratingMatrix(false);
     },300);
@@ -469,9 +484,9 @@ function MatrixView({spaces,getRelation,cycleRelation,getSpaceColor,isGenerating
     <div className="fm-canvas-scroll"><FunctionalMatrixGraphic spaces={spaces} getRelation={getRelation}
       cycleRelation={cycleRelation} getSpaceColor={getSpaceColor} triangular={triangular} mode={matrixDisplayMode}/></div>
     <div className="fm-legend"><span><i className="fm-legend-dot fm-dot-one"/>1 · Indirecta</span>
-      <span><i className="fm-legend-dot fm-dot-two"/>2 · Intermedia</span>
-      <span><i className="fm-legend-dot fm-dot-three"/>3 · Directa</span>
-      <span>0 · Sin relación</span><span className="fm-help">Clic: 0 → 1 → 2 → 3 → 0</span>
+      <span><i className="fm-legend-dot fm-dot-two"/>2 · Directa</span>
+      
+      <span>0 · Sin relación</span><span className="fm-help">Clic: 0 → 1 → 2 → 0</span>
     </div>
   </div>;
 }
@@ -542,7 +557,7 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
             const maxRepulseDist = springLength * 1.5; 
             if (dist > minRequiredDist && dist < maxRepulseDist) { force += (maxRepulseDist - dist) * 0.01; } 
           } 
-          else if (weight === 3) { 
+          else if (weight === 2) { 
             const idealDist = minRequiredDist + (springLength * 0.2); 
             force += (idealDist - dist) * 0.06; 
           } 
@@ -647,7 +662,7 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
                 {nodes.map(node => <circle key={`goo-node-${node.id}`} cx={node.x} cy={node.y} r={node.radius * gooeyStrength} fill={getSpaceColor(node)} />)}
               </g>
             )}
-            <g>{nodes.map((nodeA, i) => nodes.slice(i + 1).map(nodeB => { const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null; return <line key={`dash-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={currentPalette.text} strokeWidth="1.5" strokeDasharray="4,4" opacity="0.5" />; }))}</g>
+            <g>{nodes.map((nodeA, i) => nodes.slice(i + 1).map(nodeB => { const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null; return <line key={`dash-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={currentPalette.text} strokeWidth="1.5" strokeDasharray={relationDasharray(weight)} opacity={weight===2?0.75:0.5} />; }))}</g>
             {nodes.map(node => {
                const zColor = getSpaceColor(node); const textRadius = node.radius + 6; const pathId = `text-path-${node.id}`;
                return (
@@ -735,8 +750,8 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
          <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
            <svg width="4000" height="4000" className="absolute inset-0 overflow-visible" fontFamily="DM Sans, sans-serif">
               <defs><marker id="arrowHead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill={currentPalette.zones.circulation} opacity="0.8" /></marker></defs>
-              {spaces.map((n1, i) => spaces.slice(i+1).map(n2 => { const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight === 0 || (showFlows && (n1.zone === 'circulation' || n2.zone === 'circulation'))) return null; const isDirect = weight === 3; return <path key={`ortho-${n1.id}-${n2.id}`} d={drawOrthogonalLine(n1, n2)} fill="none" stroke={isDirect ? lineDirectColor : lineIndirectColor} strokeWidth={isDirect ? 2.5 : 1.5} strokeDasharray={isDirect ? 'none' : '4,4'} opacity={isDirect ? 0.6 : 0.3} />; }))}
-              {showFlows && spaces.map((n1, i) => spaces.slice(i+1).map(n2 => { const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight > 0 && (n1.zone === 'circulation' || n2.zone === 'circulation')) { return <path key={`flow-${n1.id}-${n2.id}`} d={drawOrganicCurve(n1, n2)} fill="none" stroke={currentPalette.zones.circulation} strokeWidth="5" strokeDasharray="10,10" opacity="0.8" markerEnd="url(#arrowHead)"/>; } return null; }))}
+              {spaces.map((n1, i) => spaces.slice(i+1).map(n2 => { const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight === 0 || (showFlows && (n1.zone === 'circulation' || n2.zone === 'circulation'))) return null; const isDirect = weight === 2; return <path key={`ortho-${n1.id}-${n2.id}`} d={drawOrthogonalLine(n1, n2)} fill="none" stroke={isDirect ? lineDirectColor : lineIndirectColor} strokeWidth={isDirect ? 2.5 : 1.5} strokeDasharray={relationDasharray(weight)} opacity={isDirect ? 0.6 : 0.3} />; }))}
+              {showFlows && spaces.map((n1, i) => spaces.slice(i+1).map(n2 => { const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight > 0 && (n1.zone === 'circulation' || n2.zone === 'circulation')) { return <path key={`flow-${n1.id}-${n2.id}`} d={drawOrganicCurve(n1, n2)} fill="none" stroke={currentPalette.zones.circulation} strokeWidth="5" strokeDasharray={relationDasharray(weight)} opacity="0.8" markerEnd="url(#arrowHead)"/>; } return null; }))}
               {spaces.map(node => {
                  const zColor = getSpaceColor(node); const isHovered = draggingId === node.id || resizingId === node.id;
                  return (
@@ -812,7 +827,7 @@ function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpace
      <svg viewBox={getBBox('flow')} className="w-full h-full relative z-10" fontFamily="DM Sans, sans-serif">
         {spaces.map((n1, i) => spaces.slice(i+1).map(n2 => {
              const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight === 0) return null;
-             const cx1 = n1.x+n1.w/2, cy1 = n1.y+n1.h/2, cx2 = n2.x+n2.w/2, cy2 = n2.y+n2.h/2, isDirect = weight===3;
+             const cx1 = n1.x+n1.w/2, cy1 = n1.y+n1.h/2, cx2 = n2.x+n2.w/2, cy2 = n2.y+n2.h/2, isDirect = weight===2;
              const d = Math.abs(cx1-cx2) > Math.abs(cy1-cy2) ? `M ${cx1} ${cy1} H ${(cx1+cx2)/2} V ${cy2} H ${cx2}` : `M ${cx1} ${cy1} V ${(cy1+cy2)/2} H ${cx2} V ${cy2}`;
              return <path key={`ortho-${n1.id}-${n2.id}`} d={d} fill="none" stroke={currentPalette.text} strokeWidth={isDirect ? 2.5 : 1} strokeDasharray={isDirect ? 'none' : '4,4'} opacity={isDirect ? 0.6 : 0.3} />;
         }))}
@@ -847,7 +862,7 @@ function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpace
           }))}
           {spaces.map(node => <circle key={`p-goo-node-${node.id}`} cx={node.x} cy={node.y} r={(Math.max(30, Math.sqrt(node.area || 10) * 8)) * 1.8} fill={getSpaceColor(node)} />)}
         </g>
-        <g>{spaces.map((nodeA, i) => spaces.slice(i + 1).map(nodeB => { const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null; return <line key={`p-dash-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={currentPalette.text} strokeWidth="1.5" strokeDasharray="4,4" opacity="0.5" />; }))}</g>
+        <g>{spaces.map((nodeA, i) => spaces.slice(i + 1).map(nodeB => { const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null; return <line key={`p-dash-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={currentPalette.text} strokeWidth="1.5" strokeDasharray={relationDasharray(weight)} opacity={weight===2?0.75:0.5} />; }))}</g>
         {spaces.map(node => {
            const zColor = getSpaceColor(node); const rad = Math.max(30, Math.sqrt(node.area || 10) * 8); const textRadius = rad + 6;
            return (
