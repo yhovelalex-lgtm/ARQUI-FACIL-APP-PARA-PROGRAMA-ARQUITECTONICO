@@ -78,7 +78,7 @@ try {
   check('Triangular no duplica pares', new Set(pairs).size, 55);
   await page.getByRole('button', { name: 'FORMA: TRIANGULAR' }).click();
   check('Cuadrada muestra los 110 extremos de los pares', await cells().count(), 110);
-  await page.getByRole('button', { name: 'Relación entre Hall y Reception: 3. Clic para cambiar.' }).click();
+  await page.getByRole('button', { name: 'Relación entre Hall y Reception: 2. Clic para cambiar.' }).click();
   check('Las dos celdas reflejan la misma relación editada', await page.getByRole('button', { name: /Relación entre (Hall y Reception|Reception y Hall): 0/ }).count(), 2);
   await page.getByRole('button', { name: 'FORMA: CUADRADA' }).click();
   check('Volver a triangular conserva el valor', await page.getByRole('button', { name: 'Relación entre Reception y Hall: 0. Clic para cambiar.' }).count(), 1);
