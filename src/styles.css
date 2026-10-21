@@ -182,3 +182,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fm-line-direct{border-top-style:solid}
 .fm-print-wrapper .fm-legend{padding-top:10px;padding-bottom:8px;max-width:none;justify-content:center}
 .fm-print-wrapper .fm-help{margin-left:0}
+
+.fm-legend-svg-text{font-family:var(--font-sans);font-size:10px;fill:#354038;font-weight:650;user-select:none}.fm-svg-legend-movable:hover>rect{stroke:#647d69;stroke-width:1.5}.fm-legend-hint{max-width:1400px;margin:9px auto 0;color:#737d74;font-size:11px}.fm-canvas-scroll{padding-top:20px}.fm-tile{stroke:#c0cdc2;stroke-width:1.3}.fm-perimeter{stroke:#49594e;stroke-width:1.8}
