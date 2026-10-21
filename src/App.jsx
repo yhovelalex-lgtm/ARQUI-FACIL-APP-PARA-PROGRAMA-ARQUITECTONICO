@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { RELATION, relationKey, nextRelation, relationDasharray, matrixLayout, matrixCell, matrixOutline } from './matrix-geometry.js';
+import { RELATION, relationKey, nextRelation, relationDasharray, matrixLayout, matrixCell, matrixOutline, matrixRowShape } from './matrix-geometry.js';
 import { Plus, Trash2, Grid, Network, ListPlus, Play, BrainCircuit, Sparkles, Loader2, Settings2, Square, LayoutTemplate, Printer, FileSpreadsheet, ZoomIn, Palette, ImagePlus, Shuffle, MoveRight } from 'lucide-react';
 
 const ZONES = { social: { id: 'social', label: 'Pública / Principal' }, private: { id: 'private', label: 'Privada / Anexos' }, service: { id: 'service', label: 'Servicios' }, circulation: { id: 'circulation', label: 'Circulación' } };
@@ -422,30 +422,42 @@ function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceC
       <text x={roomWidth-83} y="33" textAnchor="middle" className="fm-head-text">ÁREA</text>
       <text x={roomWidth-22} y="33" textAnchor="middle" className="fm-head-text">Σ</text>
       {spaces.map((room,i)=>{
-        const top=headerHeight+i*rowHeight;
+        const top=headerHeight+i*rowHeight, mid=top+half, color=getSpaceColor(room);
         return <g key={'room-'+room.id}>
-          <rect x="0" y={top} width={roomWidth} height={rowHeight} fill="#fff" />
-          <rect x="0" y={top} width={roomWidth} height={rowHeight}
-            fill={getSpaceColor(room)} opacity=".15" />
-          <rect x="0" y={top} width="5" height={rowHeight} fill={getSpaceColor(room)} opacity=".56" />
-          <path d={'M 0 '+(top+rowHeight)+' H '+roomWidth} stroke="#e0e5df" fill="none"/>
-          <text x="18" y={top+rowHeight/2} dominantBaseline="middle" className="fm-row-label">
+          <path d={matrixRowShape(layout,i)} fill="#fff" stroke="#d5ded7" strokeWidth="1" />
+          <path d={matrixRowShape(layout,i)} fill={color} fillOpacity=".19" pointerEvents="none" />
+          <rect x="0" y={top} width="5" height={rowHeight} fill={color} opacity=".7" />
+          <text x="18" y={mid} dominantBaseline="middle" className="fm-row-label">
             {(i+1)+'. '+(room.name.length>39 ? room.name.slice(0,37)+'…':room.name)}
           </text>
-          <text x={roomWidth-58} y={top+rowHeight/2} textAnchor="end" dominantBaseline="middle"
+          <text x={roomWidth-78} y={mid} textAnchor="end" dominantBaseline="middle"
             className="fm-row-info">{Number(room.area||0).toLocaleString('es-PE',{maximumFractionDigits:1})} m²</text>
-          <text x={roomWidth-20} y={top+rowHeight/2} textAnchor="middle" dominantBaseline="middle"
+          <text x={roomWidth-40} y={mid} textAnchor="middle" dominantBaseline="middle"
             className="fm-row-total">{total(room)}</text>
+        </g>;
+      })}
+      {triangular && spaces.map((room,i)=>{
+        const {x,y}=matrixCell(layout,i,i);
+        return <g key={'anchor-'+room.id} aria-label={'Identificador de '+room.name}>
+          <polygon points={[[x,y-half],[x+half,y],[x,y+half],[x-half,y]].map(p=>p.join(',')).join(' ')}
+            fill={getSpaceColor(room)} fillOpacity=".19" stroke="#cbd3cd" strokeWidth="1.1"/>
+          <circle cx={x} cy={y} r="3" fill="#8d9b91"/>
         </g>;
       })}
       {triangular
         ? spaces.flatMap((room,i)=>spaces.slice(i+1).map((col,k)=>diamond(i,i+k+1)))
         : spaces.flatMap((room,i)=>spaces.map((col,j)=>diamond(i,j)))}
       <path d={matrixOutline(layout)} className="fm-perimeter" pointerEvents="none" />
-      {triangular && spaces.slice(0,-1).map((room,i)=>
-        <path key={'connector-'+room.id} d={'M '+(roomWidth-5)+' '+(headerHeight+(i+1)*rowHeight)+' H '+roomWidth}
-          stroke="#9fa9a1" strokeWidth="1.6" fill="none" pointerEvents="none"/>)}
     </svg>
+  </div>;
+}
+
+function MatrixLegend() {
+  return <div className="fm-legend" aria-label="Leyenda de relaciones funcionales">
+    <span><i className="fm-legend-box fm-box-none" aria-hidden="true"/>0 · Relación nula</span>
+    <span><i className="fm-legend-line fm-line-indirect" aria-hidden="true"/>1 · Relación indirecta</span>
+    <span><i className="fm-legend-line fm-line-direct" aria-hidden="true"/>2 · Relación directa</span>
+    <span className="fm-help">Clic: 0 → 1 → 2 → 0</span>
   </div>;
 }
 
@@ -483,11 +495,7 @@ function MatrixView({spaces,getRelation,cycleRelation,getSpaceColor,isGenerating
     </div>
     <div className="fm-canvas-scroll"><FunctionalMatrixGraphic spaces={spaces} getRelation={getRelation}
       cycleRelation={cycleRelation} getSpaceColor={getSpaceColor} triangular={triangular} mode={matrixDisplayMode}/></div>
-    <div className="fm-legend"><span><i className="fm-legend-dot fm-dot-one"/>1 · Indirecta</span>
-      <span><i className="fm-legend-dot fm-dot-two"/>2 · Directa</span>
-      
-      <span>0 · Sin relación</span><span className="fm-help">Clic: 0 → 1 → 2 → 0</span>
-    </div>
+    <MatrixLegend />
   </div>;
 }
 
@@ -891,7 +899,7 @@ function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpace
 
   return (
     <div className="flex flex-col h-full bg-[#f6f6f2] overflow-hidden">
-      <div id="print-node-matrix" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="fm-print-wrapper"><MatrixContent /></div></div>
+      <div id="print-node-matrix" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="fm-print-wrapper"><MatrixContent /><MatrixLegend /></div></div>
       <div id="print-node-flowdiagram" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="absolute inset-0 opacity-10" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `40px 40px` }}></div><FlowContent /></div>
       <div id="print-node-topology" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><TopologyContent /></div>
       
