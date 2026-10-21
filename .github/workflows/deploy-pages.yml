@@ -28,6 +28,8 @@ jobs:
           cache: npm
       - name: Instalar dependencias
         run: npm ci
+      - name: Verificar relaciones y geometría de matriz
+        run: npm run test:matrix
       - name: Compilar para GitHub Pages
         run: npm run build
         env:
