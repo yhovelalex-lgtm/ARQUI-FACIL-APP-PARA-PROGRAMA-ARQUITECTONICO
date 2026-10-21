@@ -125,7 +125,7 @@ export default function App() {
   const [printSelectedViews,setPrintSelectedViews]=useState({program:false,matrix:true,flowdiagram:true,topology:true,floorplan:false});
   const [printPageFormat,setPrintPageFormat]=useState({w:420,h:297});
   const [printDpi,setPrintDpi]=useState(200);
-  const [selectedPaletteId, setSelectedPaletteId] = useState('dark_blueprint'); 
+  const [selectedPaletteId, setSelectedPaletteId] = useState('minimalist'); 
   const [customPalette, setCustomPalette] = useState(null);
   const [extractedColors, setExtractedColors] = useState([]);
   const [customBgMode, setCustomBgMode] = useState('light');
@@ -139,7 +139,7 @@ export default function App() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isGeneratingMatrix, setIsGeneratingMatrix] = useState(false);
 
-  const basePalette = (selectedPaletteId === 'custom_image' && customPalette) ? customPalette : PRINT_PALETTES.find(p => p.id === selectedPaletteId) || PRINT_PALETTES[0];
+  const basePalette = (selectedPaletteId === 'custom_image' && customPalette) ? customPalette : PRINT_PALETTES.find(p => p.id === selectedPaletteId) || PRINT_PALETTES.find(p => p.id === 'minimalist');
   const currentPalette={...basePalette,...Object.fromEntries(['bg','text','lines'].filter(k=>styleOverrides[k]).map(k=>[k,styleOverrides[k]]))};
   const colors={bg:currentPalette.bg,text:currentPalette.text,lines:currentPalette.lines,direct:styleOverrides.direct||currentPalette.zones.social,indirect:styleOverrides.indirect||currentPalette.zones.service,label:styleOverrides.label||currentPalette.text,area:styleOverrides.area||currentPalette.text,core:styleOverrides.core||currentPalette.text,blend:styleOverrides.blend||currentPalette.zones.private,legendBg:styleOverrides.legendBg||currentPalette.bg,legendBorder:styleOverrides.legendBorder||currentPalette.lines};
   const changeLegend=(key)=>(position)=>setLegendPositions(prev=>({...prev,[key]:position}));
