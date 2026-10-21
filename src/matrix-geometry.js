@@ -17,32 +17,35 @@ export function relationDasharray(value) {
 
 export function matrixLayout(count, triangular = true, roomWidth = 450, rowHeight = 48, headerHeight = 56) {
   const half = rowHeight / 2;
+  const headerGap = 12;
+  const rowStart = headerHeight + headerGap;
+  const legendHeight = 78;
   return {
-    triangular, count, roomWidth, rowHeight, headerHeight, half,
+    triangular, count, roomWidth, rowHeight, headerHeight, headerGap, rowStart, legendHeight, half,
     // Un rombo identificador por recinto; las relaciones se ubican a su derecha.
     width: roomWidth + (triangular ? (count + 1) * half : count * rowHeight) + 2,
-    height: headerHeight + count * rowHeight + 2,
+    height: rowStart + count * rowHeight + legendHeight + 2,
   };
 }
 
 export function matrixCell(layout, row, col) {
-  const { roomWidth, rowHeight, headerHeight, half, triangular } = layout;
+  const { roomWidth, rowHeight, rowStart, half, triangular } = layout;
   return triangular
-    ? { x: roomWidth + (col - row + 1) * half, y: headerHeight + (row + col + 1) * half }
-    : { x: roomWidth + col * rowHeight + half, y: headerHeight + row * rowHeight + half };
+    ? { x: roomWidth + (col - row + 1) * half, y: rowStart + (row + col + 1) * half }
+    : { x: roomWidth + col * rowHeight + half, y: rowStart + row * rowHeight + half };
 }
 
 // Punta coloreada de la tabla: el vértice coincide con el primer rombo de la fila.
 export function matrixRowShape(layout, row) {
-  const { roomWidth: right, rowHeight: step, headerHeight: header, half, triangular } = layout;
-  const top = header + row * step;
+  const { roomWidth: right, rowHeight: step, rowStart, half, triangular } = layout;
+  const top = rowStart + row * step;
   const bottom = top + step;
   if (!triangular) return `M 0 ${top} H ${right} V ${bottom} H 0 Z`;
   return `M 0 ${top} H ${right - half} L ${right} ${top + half} L ${right - half} ${bottom} H 0 Z`;
 }
 
 export function matrixOutline(layout) {
-  const { roomWidth: left, headerHeight: top, rowHeight: step, half, count: n, triangular } = layout;
+  const { roomWidth: left, rowStart: top, rowHeight: step, half, count: n, triangular } = layout;
   if (!triangular) return 'M ' + left + ' ' + top + ' H ' + (left + n * step) +
     ' V ' + (top + n * step) + ' H ' + left + ' Z';
   if (n < 1) return '';
