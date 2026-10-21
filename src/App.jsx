@@ -145,7 +145,6 @@ export default function App() {
   const colors={bg:currentPalette.bg,text:currentPalette.text,lines:currentPalette.lines,direct:styleOverrides.direct||currentPalette.zones.social,indirect:styleOverrides.indirect||currentPalette.zones.service,label:styleOverrides.label||currentPalette.text,area:styleOverrides.area||currentPalette.text,core:styleOverrides.core||currentPalette.text,blend:styleOverrides.blend||currentPalette.zones.private,legendBg:styleOverrides.legendBg||currentPalette.bg,legendBorder:styleOverrides.legendBorder||currentPalette.lines};
   const changeLegend=(key)=>(position)=>setLegendPositions(prev=>({...prev,[key]:position}));
   const paletteColors=selectedPaletteId==='custom_image'&&extractedColors.length?extractedColors:[basePalette.bg,basePalette.text,basePalette.lines,...Object.values(basePalette.zones)];
-  const graphicControls=<GraphicStyleControls selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} palettes={PRINT_PALETTES} customPalette={customPalette} colorMode={colorMode} setColorMode={setColorMode} shuffle={()=>setColorSeed(n=>n+1)} colors={colors} overrides={styleOverrides} setOverrides={setStyleOverrides} typography={typography} setTypography={setTypography} paletteColors={paletteColors} imageColors={extractedColors} onImageUpload={handleImageUpload}/>;
   const uniqueSubzones = useMemo(() => [...new Set(spaces.map(s => s.subzone || 'General'))], [spaces]);
   
   const getSpaceColor = useCallback((space) => {
@@ -199,6 +198,7 @@ export default function App() {
     setCustomPalette(prev => ({ ...prev, zones: newZones }));
   };
 
+  const graphicControls=<GraphicStyleControls selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} palettes={PRINT_PALETTES} customPalette={customPalette} colorMode={colorMode} setColorMode={setColorMode} shuffle={()=>setColorSeed(n=>n+1)} colors={colors} overrides={styleOverrides} setOverrides={setStyleOverrides} typography={typography} setTypography={setTypography} paletteColors={paletteColors} imageColors={extractedColors} onImageUpload={handleImageUpload}/>;
   const handleSpaceUpdate = (id, field, value) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
   const removeSpace = (id) => { setSpaces(spaces.filter(s => s.id !== id)); setMatrix(prev => { const nm = {...prev}; Object.keys(nm).forEach(k => { if(spaces.some(other=>other.id!==id&&relationKey(other.id,id)===k)) delete nm[k]; }); return nm; }); };
   const addSpace = (e) => { e.preventDefault(); const name = e.target.elements.spaceName.value, area = parseFloat(e.target.elements.spaceArea.value) || 10, zone = e.target.elements.spaceZone.value, subzone = e.target.elements.spaceSubzone.value || name; if (!name.trim()) return; setSpaces([...spaces, { id: generateId(), name, area, zone, subzone, x: 200, y: 200, w: 120, h: 80, pinned: false }]); e.target.reset(); };
