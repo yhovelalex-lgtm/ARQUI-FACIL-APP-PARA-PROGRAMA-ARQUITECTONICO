@@ -23,6 +23,17 @@ try{
  await page.getByRole('combobox',{name:'Distribución de colores'}).selectOption('auto');
  await page.getByRole('button',{name:'↻ Colores'}).click();
  await page.getByRole('button',{name:'Avanzado'}).click();
+ assert.equal(await page.getByRole('combobox',{name:'Tipo de letra'}).inputValue(),'Roboto','Roboto predeterminada');
+ await page.getByRole('spinbutton',{name:'Tamaño texto áreas'}).fill('16');
+ await page.getByRole('spinbutton',{name:'Tamaño texto recintos'}).fill('14');
+ const nameSize=await page.locator('.af-matrix-svg text').filter({hasText:'1. Hall'}).first().getAttribute('font-size');
+ assert.equal(nameSize,'14','Tamaño de nombres aplicado a la matriz');
+ await page.getByRole('button',{name:'Colores',exact:true}).click();
+ assert.ok(await page.getByRole('group',{name:'Colores guardados de la paleta'}).getByRole('button').count()>=4,'Muestras disponibles');
+ await page.getByRole('button',{name:/Aplicar color/}).first().click();
+ await page.getByRole('button',{name:'Paleta de imagen'}).click();
+ assert.ok(await page.getByRole('button',{name:'Cargar imagen y extraer colores'}).count()===1,'Carga de imagen disponible');
+
  await page.getByRole('textbox',{name:'Texto general'}).count().catch(()=>{});
  await module('Topología');
  assert.equal(await page.locator('.af-artwork-svg').count(),0,'El lienzo interactivo debe mantener dimensiones propias');
