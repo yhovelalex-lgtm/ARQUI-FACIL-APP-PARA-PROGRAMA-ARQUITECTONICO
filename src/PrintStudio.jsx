@@ -21,7 +21,7 @@ const viewBoxFor = (nodes, type) => {
   return [minX-55,minY-55,Math.max(220,maxX-minX+110),Math.max(180,maxY-minY+110)].join(' ');
 };
 
-export default function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, showAreaText, topologyTextPos, topologyTextSize, matrixTriangular, topologyNodes, showGooey, gooeyStrength, showFlows, floorPlanProposals, colors, legendPositions, graphicControls, selectedViews, setSelectedViews, pageFormat, setPageFormat, printDpi, setPrintDpi }) {
+export default function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, showAreaText, topologyTextPos, topologyTextSize, matrixTriangular, topologyNodes, showGooey, gooeyStrength, showFlows, floorPlanProposals, colors, typography, legendPositions, graphicControls, selectedViews, setSelectedViews, pageFormat, setPageFormat, printDpi, setPrintDpi }) {
   const [isExporting,setIsExporting]=useState(false);
   const [exportError,setExportError]=useState('');
   const inputRef=useRef(null);
@@ -42,21 +42,21 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
   ];
 
   const artwork=(id)=>{
-    if(id==='matrix')return <div className="af-sheet-matrix"><MatrixDiamond spaces={spaces} getRelation={getRelation} palette={currentPalette} getSpaceColor={getSpaceColor} colors={colors} variant={matrixTriangular?'diamond':'square'}/></div>;
-    if(id==='topology')return <TopologyArtwork nodes={topology} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showGooey={showGooey} gooeyStrength={gooeyStrength} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize} viewBox={viewBoxFor(topology,'topology')} idPrefix="print-topology"/>;
-    if(id==='flowdiagram')return <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showAreaText={showAreaText} showFlows={showFlows} viewBox={viewBoxFor(spaces,'flow')} idPrefix="print-flow"/>;
+    if(id==='matrix')return <div className="af-sheet-matrix"><MatrixDiamond spaces={spaces} getRelation={getRelation} palette={currentPalette} getSpaceColor={getSpaceColor} colors={colors} variant={matrixTriangular?'diamond':'square'} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize}/></div>;
+    if(id==='topology')return <TopologyArtwork nodes={topology} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showGooey={showGooey} gooeyStrength={gooeyStrength} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={typography.labelSize} areaTextSize={typography.areaSize} viewBox={viewBoxFor(topology,'topology')} idPrefix="print-topology"/>;
+    if(id==='flowdiagram')return <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showAreaText={showAreaText} showFlows={showFlows} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} viewBox={viewBoxFor(spaces,'flow')} idPrefix="print-flow"/>;
     if(id==='program')return <table className="af-sheet-program"><thead><tr><th>Nº</th><th>Recinto arquitectónico</th><th>Zona</th><th>Área</th></tr></thead><tbody>{spaces.map((s,i)=><tr key={s.id}><td>{i+1}</td><td style={{color:getSpaceColor(s)}}>{s.name}</td><td>{s.subzone||s.zone}</td><td>{s.area} m²</td></tr>)}</tbody><tfoot><tr><td colSpan="3">ÁREA TOTAL</td><td>{spaces.reduce((a,s)=>a+Number(s.area||0),0).toFixed(2)} m²</td></tr></tfoot></table>;
     if(id==='floorplan'){
       const item=floorPlanProposals[0];
       if(!item)return <p>Genera un esquema de planta antes de imprimirlo.</p>;
       return <svg viewBox={'-2 -2 '+(item.boundary.w+4)+' '+(item.boundary.h+4)} className="af-artwork-svg">
         {item.layout.map(r=><g key={r.id}><rect x={r.x} y={r.y} width={r.w} height={r.h} fill={getSpaceColor(r)} fillOpacity=".16" stroke={currentPalette.lines} strokeWidth=".13"/>
-          <text x={r.x+r.w/2} y={r.y+r.h/2} fontSize="1.35" fill={currentPalette.text} textAnchor="middle">{r.name.slice(0,17)}</text></g>)}
+          <text x={r.x+r.w/2} y={r.y+r.h/2} fontSize={Math.max(1.15,typography.labelSize/8)} fill={currentPalette.text} textAnchor="middle">{r.name.slice(0,17)}</text></g>)}
       </svg>;
     }
     return null;
   };
-  const sheet=(id,index)=><div id={'af-sheet-preview-'+id} className="af-sheet-page" key={id} style={{aspectRatio:pageFormat.w+'/'+pageFormat.h,background:currentPalette.bg,color:currentPalette.text,borderColor:currentPalette.lines}}>
+  const sheet=(id,index)=><div id={'af-sheet-preview-'+id} className="af-sheet-page" key={id} style={{aspectRatio:pageFormat.w+'/'+pageFormat.h,background:currentPalette.bg,color:currentPalette.text,borderColor:currentPalette.lines,fontFamily:typography.fontFamily}}>
     <div className="af-sheet-header"><strong>ARQUI<span>FÁCIL</span></strong><div><span>ESTUDIO DE PROGRAMA ARQUITECTÓNICO</span><b>{viewMeta.find(v=>v.id===id)?.title}</b></div><small>{'LÁMINA '+String(index+1).padStart(2,'0')}</small></div>
     <div className={'af-sheet-body af-sheet-body-'+id} style={{borderColor:currentPalette.lines}}>
       {artwork(id)}
