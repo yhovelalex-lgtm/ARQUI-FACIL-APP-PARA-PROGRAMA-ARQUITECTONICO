@@ -4,7 +4,6 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1600,height:950},acceptDownloads:true});
 const errors=[];
 page.on('pageerror',error=>errors.push(error.message));
-page.on('console',m=>{if(m.text().includes('DEBUG'))console.log('BROWSER:',m.text());});
 async function module(name){await page.getByRole('navigation').getByRole('button',{name:new RegExp(name)}).click();await page.waitForTimeout(150);}
 const url=process.env.BASE_URL||'http://127.0.0.1:5173/';
 try{
@@ -14,11 +13,6 @@ try{
  assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),55,'Triangular debe tener 55 pares');
  const first=page.getByRole('button',{name:'Relación entre Hall y Reception: 3. Clic para cambiar.'});
  await first.click();
- console.log('VALOR DESPUÉS DEL CLIC:', await page.locator('[aria-label^="Relación entre Hall y Reception:"]').first().getAttribute('aria-label'));
- await page.locator('[aria-label^="Relación entre Hall y Reception:"]').first().dispatchEvent('click');
- console.log('VALOR DESPUÉS DE DISPATCH:', await page.locator('[aria-label^="Relación entre Hall y Reception:"]').first().getAttribute('aria-label'));
- await page.locator('[aria-label^="Relación entre Hall y Reception:"]').first().press('Enter');
- console.log('VALOR DESPUÉS ENTER:',await page.locator('[aria-label^="Relación entre Hall y Reception:"]').first().getAttribute('aria-label'));
  await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).waitFor({timeout:6000});
  assert.equal(await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).count(),1,'Edición debe funcionar');
  await page.getByRole('button',{name:'FORMA: TRIANGULAR'}).click();
@@ -43,3 +37,4 @@ try{
  assert.deepEqual(errors,[],'No debe haber errores JavaScript');
  console.log('Pruebas de navegador: OK (matriz, edición, paletas, leyendas, láminas, PDF)');
 }catch(err){console.error('Pruebas fallidas',err,errors);throw err}finally{await browser.close()}
+
