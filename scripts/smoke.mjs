@@ -39,12 +39,12 @@ try {
   check('Elimina el espacio', await page.getByLabel('Nombre de Estudio de prueba', { exact: true }).count() === 0);
 
   await openModule('02 Matriz funcional');
-  for (const [value, next] of [[3, 0], [0, 1], [1, 2], [2, 3]]) {
+  for (const [value, next] of [[2, 0], [0, 1], [1, 2]]) {
     await page.getByRole('button', { name: `Relación entre Reception y Hall: ${value}. Clic para cambiar.` }).click();
     check(`Relación ${value} → ${next}`, await page.getByRole('button', { name: `Relación entre Reception y Hall: ${next}. Clic para cambiar.` }).count() === 1);
   }
   await page.getByRole('button', { name: 'FORMA: TRIANGULAR' }).click();
-  check('Alterna a matriz cuadrada', await page.getByRole('button', { name: 'Relación entre Hall y Reception: 3. Clic para cambiar.' }).count() === 1);
+  check('Alterna a matriz cuadrada', await page.getByRole('button', { name: 'Relación entre Hall y Reception: 2. Clic para cambiar.' }).count() === 1);
 
   await openModule('03 Topología');
   await page.waitForTimeout(400);
