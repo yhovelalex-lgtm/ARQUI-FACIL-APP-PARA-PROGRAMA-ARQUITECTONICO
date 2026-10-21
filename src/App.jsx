@@ -122,7 +122,10 @@ export default function App() {
   const [matrixTriangular,setMatrixTriangular]=useState(true),[topologyNodes,setTopologyNodes]=useState([]);
   const [showGooey,setShowGooey]=useState(true),[gooeyStrength,setGooeyStrength]=useState(1.8),[showFlows,setShowFlows]=useState(false);
   const [legendPositions,setLegendPositions]=useState({matrix:{x:72,y:3},topology:{x:73,y:5},flowdiagram:{x:73,y:5}});
-  const [selectedPaletteId, setSelectedPaletteId] = useState('minimalist'); 
+  const [printSelectedViews,setPrintSelectedViews]=useState({program:false,matrix:true,flowdiagram:true,topology:true,floorplan:false});
+  const [printPageFormat,setPrintPageFormat]=useState({w:420,h:297});
+  const [printDpi,setPrintDpi]=useState(200);
+  const [selectedPaletteId, setSelectedPaletteId] = useState('dark_blueprint'); 
   const [customPalette, setCustomPalette] = useState(null);
   const [extractedColors, setExtractedColors] = useState([]);
   const [customBgMode, setCustomBgMode] = useState('light');
@@ -147,8 +150,8 @@ export default function App() {
     if(colorMode==='auto'){const palette=[...Object.values(currentPalette.zones),...extractedColors,'#ef8354','#4cc9f0','#8ac926','#b39ddb','#f9c74f','#ff6b91'];let hash=colorSeed*17;for(const ch of String(space.id||space.name))hash=(hash*33+ch.charCodeAt(0))>>>0;return palette[hash%palette.length];}
     if(colorMode==='macro'){const palette=Object.values(currentPalette.zones),i=Object.keys(currentPalette.zones).indexOf(space.zone);return palette[(i+colorSeed+palette.length)%palette.length]||currentPalette.lines;}
     const szIndex = uniqueSubzones.indexOf(space.subzone || 'General');
-    if (selectedPaletteId === 'custom_image' && extractedColors.length > 0) return extractedColors[szIndex % extractedColors.length];
-    return `hsl(${(szIndex * 137.5) % 360}, 75%, 60%)`;
+    if (selectedPaletteId === 'custom_image' && extractedColors.length > 0) return extractedColors[(szIndex + colorSeed) % extractedColors.length];
+    return `hsl(${((szIndex + colorSeed) * 137.5) % 360}, 75%, 60%)`;
   }, [colorMode, currentPalette, uniqueSubzones, selectedPaletteId, extractedColors,colorSeed]);
 
   useEffect(() => {
@@ -260,7 +263,7 @@ export default function App() {
         {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setTopologyNodes} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize}  savedNodes={topologyNodes} showGooey={showGooey} setShowGooey={setShowGooey} gooeyStrength={gooeyStrength} setGooeyStrength={setGooeyStrength} colors={colors} legendPosition={legendPositions.topology} onLegendPositionChange={changeLegend('topology')} controls={graphicControls} />}
         {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} showAreaText={showAreaText} setShowAreaText={setShowAreaText}  showFlows={showFlows} setShowFlows={setShowFlows} colors={colors} setStyleOverrides={setStyleOverrides} legendPosition={legendPositions.flowdiagram} onLegendPositionChange={changeLegend('flowdiagram')} controls={graphicControls} />}
         {activeTab === 'floorplan' && <FloorPlanView spaces={spaces} matrix={matrix} proposals={floorPlanProposals} setProposals={setFloorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} />}
-        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize}  matrixTriangular={matrixTriangular} topologyNodes={topologyNodes} showGooey={showGooey} gooeyStrength={gooeyStrength} showFlows={showFlows} colors={colors} legendPositions={legendPositions} />}
+        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize}  matrixTriangular={matrixTriangular} topologyNodes={topologyNodes} showGooey={showGooey} gooeyStrength={gooeyStrength} showFlows={showFlows} colors={colors} legendPositions={legendPositions} graphicControls={graphicControls} selectedViews={printSelectedViews} setSelectedViews={setPrintSelectedViews} pageFormat={printPageFormat} setPageFormat={setPrintPageFormat} printDpi={printDpi} setPrintDpi={setPrintDpi} />}
         </div>
         <footer className="workspace-footer"><span><span className="status-dot"/>Sesión local · sin guardado permanente</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
       </main>
