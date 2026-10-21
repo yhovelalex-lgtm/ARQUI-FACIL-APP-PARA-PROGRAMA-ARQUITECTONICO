@@ -66,3 +66,7 @@
 .af-export-error{color:#a33429;font-size:12px;max-width:1220px;margin:10px auto}
 @media(max-width:950px){.af-print-header{align-items:start}.af-print-header h2{font-size:18px}.af-legend{max-width:45%}.af-style-toolbar{max-width:100%}}
 @media(max-width:600px){.af-print-scroll{padding:12px}.af-print-header{padding:12px}.af-style-panel{left:0;right:auto}.af-matrix-scroll{max-height:70vh}}
+
+.af-print-style{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:9px 24px;border-bottom:1px solid #deded5;background:#fafaf8;z-index:3}
+.af-print-style>span{font-size:10px;color:#77776b}
+.af-print-actions label select{min-width:130px}
