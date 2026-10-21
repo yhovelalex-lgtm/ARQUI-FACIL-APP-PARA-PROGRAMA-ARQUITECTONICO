@@ -27,3 +27,4 @@ jobs:
           npm run dev -- --host 127.0.0.1 > /tmp/arqui-vite.log 2>&1 &
           sleep 5
           node scripts/verify-browser.mjs
+          npm run test:diagrams
