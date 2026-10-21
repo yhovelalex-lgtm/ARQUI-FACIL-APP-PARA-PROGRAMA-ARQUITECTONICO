@@ -21,9 +21,7 @@ const viewBoxFor = (nodes, type) => {
   return [minX-55,minY-55,Math.max(220,maxX-minX+110),Math.max(180,maxY-minY+110)].join(' ');
 };
 
-export default function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, showAreaText, topologyTextPos, topologyTextSize, matrixTriangular, topologyNodes, showGooey, gooeyStrength, showFlows, floorPlanProposals, colors, legendPositions }) {
-  const [selectedViews,setSelectedViews]=useState({program:false,matrix:true,flowdiagram:true,topology:true,floorplan:false});
-  const [pageFormat,setPageFormat]=useState({w:420,h:297});
+export default function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, showAreaText, topologyTextPos, topologyTextSize, matrixTriangular, topologyNodes, showGooey, gooeyStrength, showFlows, floorPlanProposals, colors, legendPositions, graphicControls, selectedViews, setSelectedViews, pageFormat, setPageFormat, printDpi, setPrintDpi }) {
   const [isExporting,setIsExporting]=useState(false);
   const [exportError,setExportError]=useState('');
   const inputRef=useRef(null);
@@ -70,6 +68,7 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
     if(!active.length){setExportError('Selecciona al menos una lámina.');return;}
     if(!(pageFormat.w>0&&pageFormat.h>0)){setExportError('El formato de papel debe ser positivo.');return;}
     setIsExporting(true);setExportError('');
+    await document.fonts.ready;
     try {
       const [{default:html2canvas},pdfModule]=await Promise.all([import('html2canvas'),format==='pdf'?import('jspdf'):Promise.resolve(null)]);
       const jsPDF=pdfModule?.jsPDF||pdfModule?.default;
@@ -77,10 +76,14 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
       for(let i=0;i<active.length;i++){
         const id=active[i].id,element=document.getElementById('af-sheet-preview-'+id);
         if(!element)throw new Error('No se encontró la previsualización de '+id);
-        const canvas=await html2canvas(element,{scale:3,useCORS:true,backgroundColor:currentPalette.bg,logging:false});
+        // Ajustar la resolución real al tamaño físico del papel, no al tamaño de la miniatura.
+        const previewWidth=Math.max(1,element.getBoundingClientRect().width);
+        const pixelWidth=pageFormat.w/25.4*printDpi;
+        const scale=Math.min(12,Math.max(1,pixelWidth/previewWidth));
+        const canvas=await html2canvas(element,{scale,useCORS:true,backgroundColor:currentPalette.bg,logging:false});
         if(pdf){
           if(i>0)pdf.addPage([pageFormat.w,pageFormat.h],pageFormat.w>=pageFormat.h?'landscape':'portrait');
-          pdf.addImage(canvas.toDataURL('image/jpeg',.96),'JPEG',0,0,pageFormat.w,pageFormat.h);
+          pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,pageFormat.w,pageFormat.h);
         }else{
           const a=document.createElement('a');
           a.download='ArquiFacil_'+id+'.'+format;
@@ -96,6 +99,7 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
     <div className="af-print-header">
       <div><h2><Palette size={20}/> Estudio de <b>láminas</b></h2><p>Las láminas usan los datos, colores, relaciones y geometría configurados en cada módulo.</p></div>
       <div className="af-print-actions">
+        <label>CALIDAD <select aria-label="Resolución de impresión" value={printDpi} onChange={e=>setPrintDpi(Number(e.target.value))}><option value={150}>150 ppp · Borrador</option><option value={200}>200 ppp · Estándar</option><option value={300}>300 ppp · Alta</option></select></label>
         <label>FORMATO <select aria-label="Formato de papel" value={pageFormat.w+'x'+pageFormat.h} onChange={e=>{const [w,h]=e.target.value.split('x').map(Number);setPageFormat({w,h});}}><option value="420x297">A3 horizontal</option><option value="297x420">A3 vertical</option><option value="297x210">A4 horizontal</option><option value="210x297">A4 vertical</option><option value="594x420">A2 horizontal</option></select></label>
         <button className="af-print-image" title="Extraer paleta desde una imagen" onClick={()=>inputRef.current?.click()}><ImagePlus size={16}/> Imagen</button><input type="file" accept="image/*" ref={inputRef} style={{display:'none'}} onChange={handleImageUpload}/>
         <button className="af-export-pdf" disabled={isExporting} onClick={()=>exportBatch('pdf')}><Printer size={15}/>{isExporting?'Exportando…':'Exportar PDF'}</button>
@@ -103,6 +107,7 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
         <button disabled={isExporting} onClick={()=>exportBatch('jpg')}>JPG</button>
       </div>
     </div>
+    <div className="af-print-style">{graphicControls}<span>Los cambios de paleta se aplican a las láminas y los diagramas.</span></div>
     <div className="af-print-scroll">
       <div className="af-print-select"><strong>Seleccionar láminas</strong><span>{active.length} páginas seleccionadas</span><div className="af-print-options">{validViews.map(v=><label key={v.id} className={selectedViews[v.id]?'selected':''}><input type="checkbox" checked={!!selectedViews[v.id]} onChange={e=>setSelectedViews(p=>({...p,[v.id]:e.target.checked}))}/><v.icon size={16}/>{v.title}</label>)}</div></div>
       {exportError&&<p role="alert" className="af-export-error">{exportError}</p>}
