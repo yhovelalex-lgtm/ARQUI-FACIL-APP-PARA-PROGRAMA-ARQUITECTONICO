@@ -81,7 +81,7 @@ try {
   await page.getByRole('button', { name: 'Relación entre Hall y Reception: 3. Clic para cambiar.' }).click();
   check('Las dos celdas reflejan la misma relación editada', await page.getByRole('button', { name: /Relación entre (Hall y Reception|Reception y Hall): 0/ }).count(), 2);
   await page.getByRole('button', { name: 'FORMA: CUADRADA' }).click();
-  check('Volver a triangular conserva el valor', await page.getByRole('button', { name: 'Relación entre Reception y Hall: 0. Clic para cambiar.' }).count(), 1);
+  check('Volver a triangular conserva el valor', await page.getByRole('button', { name: 'Relación entre Hall y Reception: 0. Clic para cambiar.' }).count(), 1);
   await page.screenshot({ path: path.join(output, 'triangular.png'), animations: 'disabled' });
 
   for (const name of ['Topología', 'Relaciones']) {
