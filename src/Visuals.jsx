@@ -2,13 +2,15 @@ import React, { useRef, useState } from 'react';
 
 /** Un único lenguaje gráfico para el editor y las láminas de exportación. */
 export const relationKey = (a, b) => [a, b].sort().join('-');
+// El modelo mantiene 3/1 para compatibilidad; la convención gráfica es 2/1.
+export const relationshipScore = (value) => value === 3 || value === 2 ? 2 : value === 1 ? 1 : 0;
 export const withAlpha = (color, alpha) => {
   if (/^#[0-9a-f]{6}$/i.test(color)) return color + Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, '0');
   if (/^#[0-9a-f]{3}$/i.test(color)) return '#' + [...color.slice(1)].map(c => c + c).join('') + Math.round(alpha * 255).toString(16).padStart(2, '0');
   return color;
 };
 const relationshipItems = (colors) => [
-  { code: '3', text: 'Directa / Necesaria', color: colors.direct },
+  { code: '2', text: 'Directa / Necesaria', color: colors.direct },
   { code: '1', text: 'Indirecta / Deseable', color: colors.indirect },
   { code: '–', text: 'Nula / Sin relación', color: colors.muted }
 ];
@@ -45,20 +47,21 @@ export function LegendOverlay({ title = 'SIMBOLOGÍA DE VÍNCULO', items, positi
 export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceColor, palette, colors, variant = 'diamond', labelTextSize = 11, areaTextSize = 10 }) {
   if (!spaces.length) return null;
   const h = 39, top = 52, left = 330, width = Math.max(785, left + h * spaces.length / 2 + 255), height = top + spaces.length * h + 34;
-  const relColor = (value) => value === 3 ? colors.direct : value === 1 ? colors.indirect : colors.muted;
+  const relColor = (value) => relationshipScore(value) === 2 ? colors.direct : value === 1 ? colors.indirect : colors.muted;
   const clickPair = (a, b) => onCycleRelation && onCycleRelation(a, b);
   const makeCell = (a, b, x, y, diamond = false) => {
     const value = getRelation(a.id, b.id);
     const tone = relColor(value);
-    const label = 'Relación entre ' + a.name + ' y ' + b.name + ': ' + value + '. Clic para cambiar.';
+    const visualValue = relationshipScore(value);
+    const label = 'Relación entre ' + a.name + ' y ' + b.name + ': ' + visualValue + '. Clic para cambiar.';
     return <g key={relationKey(a.id, b)} role={onCycleRelation ? 'button' : undefined} tabIndex={onCycleRelation ? 0 : undefined} aria-label={onCycleRelation ? label : undefined}
       onClick={() => clickPair(a.id, b.id)} onKeyDown={event => { if (onCycleRelation && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); clickPair(a.id, b.id); } }}
       className={onCycleRelation ? 'af-matrix-cell-interactive' : ''}>
       {diamond
-        ? <polygon points={x + ',' + (y-h/2) + ' ' + (x+h/2) + ',' + y + ' ' + x + ',' + (y+h/2) + ' ' + (x-h/2) + ',' + y} fill={value === 0 ? withAlpha(palette.bg, 0.90) : withAlpha(tone, value === 3 ? .22 : .10)} stroke={value === 0 ? palette.lines : tone} strokeWidth={value === 3 ? 1.75 : .8} />
+        ? <polygon points={x + ',' + (y-h/2) + ' ' + (x+h/2) + ',' + y + ' ' + x + ',' + (y+h/2) + ' ' + (x-h/2) + ',' + y} fill={value === 0 ? palette.bg : withAlpha(tone, visualValue === 2 ? .13 : .07)} stroke={value === 0 ? palette.lines : tone} strokeWidth={visualValue === 2 ? 1.45 : .85} />
         : <rect x={x-h/2+1} y={y-h/2+1} width={h-2} height={h-2} rx="3" fill={value === 0 ? withAlpha(palette.bg,.85) : withAlpha(tone,.17)} stroke={value ? tone : palette.lines} />}
-      {value !== 0 && <circle cx={x} cy={y} r="10" fill={tone} fillOpacity=".22" stroke={tone} strokeDasharray={value === 1 ? '3 3' : undefined} strokeWidth="1.5"/>}
-      {value !== 0 && <text x={x} y={y+3.5} fontSize="10" fontWeight="700" textAnchor="middle" fill={tone}>{value}</text>}
+      {visualValue !== 0 && <circle cx={x} cy={y} r="10" fill={visualValue === 2 ? tone : withAlpha(tone,.22)} stroke={tone} strokeWidth={visualValue === 2 ? 1.1 : .9}/>}
+      {visualValue !== 0 && <text x={x} y={y+3.5} fontSize="10" fontWeight="700" textAnchor="middle" fill={visualValue === 2 ? '#ffffff' : palette.text}>{visualValue}</text>}
     </g>;
   };
   if (variant === 'square') return <svg className="af-matrix-svg" role="group" aria-label="Matriz de relaciones cuadrada" viewBox={'0 0 ' + (left + spaces.length*h+30) + ' ' + height} style={{ minWidth: Math.max(680, left+spaces.length*h+30) }}>
@@ -75,26 +78,23 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
     <svg className="af-matrix-svg" role="group" aria-label="Matriz triangular romboidal de relaciones" viewBox={'0 0 '+width+' '+height} style={{ minWidth: 760 }}>
       <text x="15" y="29" fill={palette.text} opacity=".8" fontWeight="700" fontSize="11">Nº / RECINTO ARQUITECTÓNICO</text>
       <text x="277" y="29" fill={palette.text} fontWeight="700" fontSize="11">ÁREA</text>
-      <text x={left-11} y="29" fill={palette.text} fontWeight="700" textAnchor="middle" fontSize="11">Σ</text>
+      <text x={left-h/2} y="29" fill={palette.text} fontWeight="700" textAnchor="middle" fontSize="11">Σ</text>
       {spaces.map((space,i)=>{
-        // La sumatoria conserva la lógica anterior: número de vínculos no nulos (1 o 3).
-        const count = spaces.reduce((n,s) => n + (s.id === space.id ? 0 : getRelation(space.id,s.id) > 0 ? 1 : 0),0);
+        // Σ suma los pesos visuales: directa=2, indirecta=1, nula=0.
+        const count = spaces.reduce((n,s) => n + (s.id === space.id ? 0 : relationshipScore(getRelation(space.id,s.id))),0);
         const y0=top+i*h, y1=y0+h, cy=y0+h/2;
         const tone=getSpaceColor(space);
-        // La punta de la fila coincide con el vértice superior del primer rombo.
+        // La punta llega al vértice superior del primer rombo sin invadir la trama.
         // No se agrega ni se elimina ninguna celda de la matriz de relaciones.
-        const tipX=left+h/2, shoulderX=left-h/2, sumX=left-11;
+        const tipX=left, shoulderX=left-h/2, sumX=shoulderX;
         const pentagonPoints=`13,${y0+0.5} ${shoulderX},${y0+0.5} ${tipX},${cy} ${shoulderX},${y1-0.5} 13,${y1-0.5}`;
-        const hex=/^#([0-9a-f]{6})$/i.exec(tone);
-        const luminance=hex ? [1,3,5].map(k=>parseInt(hex[1].slice(k-1,k+1),16)/255).map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)).reduce((n,v,k)=>n+v*[.2126,.7152,.0722][k],0) : .15;
-        const numberColor=luminance>.37?'#1b1b18':'#ffffff';
         return <g key={space.id} className="af-matrix-row" data-space-id={space.id}>
           <polygon
             className="af-matrix-row-pentagon"
             points={pentagonPoints}
-            fill={withAlpha(tone,.15)}
-            stroke={withAlpha(tone,.45)}
-            strokeWidth=".85"
+            fill={withAlpha(tone,.10)}
+            stroke={palette.lines}
+            strokeWidth=".72"
             strokeLinejoin="round"
           />
           <rect x="13" y={y0+1} width="4.5" height={h-2} fill={tone}/>
@@ -103,15 +103,15 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
           <text x={left-49} y={y0+h*.62} fill={palette.text} opacity=".80" textAnchor="end" fontSize={areaTextSize}>{space.area+' m²'}</text>
           <g className="af-matrix-sum" aria-label={space.name+': '+count+' relaciones'} role="img">
             <title>{'Total de vínculos de '+space.name+': '+count}</title>
-            <circle cx={sumX} cy={cy} r="11" fill={tone} stroke={palette.bg} strokeWidth="1.8"/>
-            <text x={sumX} y={cy+3.8} textAnchor="middle" fontSize="11" fill={numberColor} fontWeight="700">{count}</text>
+            <circle cx={sumX} cy={cy} r="11" fill={palette.bg} stroke={palette.text} strokeOpacity=".66" strokeWidth="1.15"/>
+            <text x={sumX} y={cy+3.8} textAnchor="middle" fontSize="11" fill={palette.text} fontWeight="650">{count}</text>
           </g>
         </g>;
       })}
       <line x1={left} y1={top} x2={left} y2={top+spaces.length*h} stroke={palette.lines} strokeOpacity=".12" strokeWidth=".8" />
       {spaces.map((a,i)=> spaces.slice(i+1).map((b,offset)=>{
         const j=i+offset+1;
-        return makeCell(a,b,left+h*(j-i)/2,top+h*(i+j+1)/2,true);
+        return makeCell(a,b,left+h*(j-i-1)/2,top+h*(i+j+1)/2,true);
       }))}
     </svg>
   );
