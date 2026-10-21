@@ -18,8 +18,8 @@ test('el primer rombo de cada fila se une exactamente a la línea de la tabla', 
     for (let i = 0; i < n - 1; i++) {
       const first = matrixCell(layout, i, i + 1);
       assert.equal(first.x - layout.half, layout.roomWidth + layout.half);
-      assert.equal(first.y, layout.headerHeight + (i + 1) * layout.rowHeight);
-      assert.ok(first.y - layout.half > layout.headerHeight);
+      assert.equal(first.y, layout.rowStart + (i + 1) * layout.rowHeight);
+      assert.ok(first.y - layout.half > layout.rowStart);
       assert.ok(first.y + layout.half < layout.height);
     }
   }
@@ -42,7 +42,7 @@ test('cuadrada: centros perfectamente coincidentes con filas', () => {
   const layout = matrixLayout(11, false);
   for (let i = 0; i < 11; i++) for (let j = 0; j < 11; j++) {
     const point = matrixCell(layout, i, j);
-    assert.equal(point.y, layout.headerHeight + (i + 0.5) * layout.rowHeight);
+    assert.equal(point.y, layout.rowStart + (i + 0.5) * layout.rowHeight);
   }
   assert.ok(matrixOutline(layout).endsWith('Z'));
 });
@@ -54,7 +54,7 @@ test('cada remate de recinto es una punta coloreable alineada con su rombo', () 
       const point = matrixCell(layout, i, i);
       const shape = matrixRowShape(layout, i);
       assert.equal(point.x - layout.half, layout.roomWidth);
-      assert.equal(point.y, layout.headerHeight + (i + .5) * layout.rowHeight);
+      assert.equal(point.y, layout.rowStart + (i + .5) * layout.rowHeight);
       assert.ok(shape.includes('L ' + layout.roomWidth + ' ' + point.y));
       assert.ok(shape.endsWith('Z'));
     }
