@@ -42,7 +42,7 @@ export function LegendOverlay({ title = 'SIMBOLOGÍA DE VÍNCULO', items, positi
   );
 }
 
-export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceColor, palette, colors, variant = 'diamond' }) {
+export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceColor, palette, colors, variant = 'diamond', labelTextSize = 11, areaTextSize = 10 }) {
   if (!spaces.length) return null;
   const h = 39, top = 52, left = 330, width = Math.max(785, left + h * spaces.length / 2 + 255), height = top + spaces.length * h + 34;
   const relColor = (value) => value === 3 ? colors.direct : value === 1 ? colors.indirect : colors.muted;
@@ -64,8 +64,8 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
   if (variant === 'square') return <svg className="af-matrix-svg" role="group" aria-label="Matriz de relaciones cuadrada" viewBox={'0 0 ' + (left + spaces.length*h+30) + ' ' + height} style={{ minWidth: Math.max(680, left+spaces.length*h+30) }}>
     <text x="16" y="28" fill={palette.text} fontSize="12" fontWeight="700">Nº / RECINTO ARQUITECTÓNICO</text>
     {spaces.map((space, i) => <g key={space.id}>
-      <text x="16" y={top+i*h+25} fill={getSpaceColor(space)} fontSize="11">{(i+1)+'. '+space.name}</text>
-      <text x="288" y={top+i*h+25} fill={palette.text} textAnchor="end" fontSize="10">{space.area+' m²'}</text>
+      <text x="16" y={top+i*h+25} fill={getSpaceColor(space)} fontSize={labelTextSize}>{(i+1)+'. '+space.name}</text>
+      <text x="288" y={top+i*h+25} fill={palette.text} textAnchor="end" fontSize={areaTextSize}>{space.area+' m²'}</text>
       <line x1="12" y1={top+(i+1)*h} x2={left-7} y2={top+(i+1)*h} stroke={palette.lines}/>
       <text x={left+i*h+h/2} y="40" fill={getSpaceColor(space)} fontSize="10" textAnchor="middle">{i+1}</text>
     </g>)}
@@ -81,8 +81,8 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
         return <g key={space.id}>
           <rect x="13" y={top+i*h} width="4" height={h-1} fill={getSpaceColor(space)}/>
           <line x1="13" y1={top+(i+1)*h} x2={left} y2={top+(i+1)*h} stroke={palette.lines} strokeWidth=".8"/>
-          <text x="26" y={top+i*h+h*.62} fill={getSpaceColor(space)} fontSize="11" fontWeight="650">{(i+1)+'. '+space.name.slice(0,29)}</text>
-          <text x="289" y={top+i*h+h*.62} fill={palette.text} opacity=".80" textAnchor="end" fontSize="10">{space.area+'m²'}</text>
+          <text x="26" y={top+i*h+h*.62} fill={getSpaceColor(space)} fontSize={labelTextSize} fontWeight="650">{(i+1)+'. '+space.name.slice(0,29)}</text>
+          <text x="289" y={top+i*h+h*.62} fill={palette.text} opacity=".80" textAnchor="end" fontSize={areaTextSize}>{space.area+'m²'}</text>
           <text x="326" y={top+i*h+h*.62} fill={colors.direct} textAnchor="middle" fontSize="11" fontWeight="700">{count}</text>
         </g>;
       })}
@@ -95,12 +95,12 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
   );
 }
 
-export function TopologyArtwork({ nodes, matrix, getSpaceColor, palette, colors, showGooey = true, gooeyStrength = 1.8, showAreaText = true, topologyTextPos = 'edge', topologyTextSize = 11, viewBox, onNodePointerDown, onNodeDoubleClick, idPrefix = 'live' }) {
+export function TopologyArtwork({ nodes, matrix, getSpaceColor, palette, colors, showGooey = true, gooeyStrength = 1.8, showAreaText = true, topologyTextPos = 'edge', topologyTextSize = 11, areaTextSize = 10, viewBox, onNodePointerDown, onNodeDoubleClick, idPrefix = 'live' }) {
   const pairs = nodes.flatMap((a,i)=>nodes.slice(i+1).map(b=>({a,b,weight:matrix[relationKey(a.id,b.id)]||0}))).filter(pair=>pair.weight>0);
   const dark = /^#(?:0[0-9a-f]|1[0-9a-f]|2[0-9a-f]|3[0-9a-f])/i.test(palette.bg);
   const filterId='af-goo-'+idPrefix;
   const glowId='af-glow-'+idPrefix;
-  return <svg viewBox={viewBox} width={viewBox ? undefined : 4000} height={viewBox ? undefined : 4000} className={viewBox ? 'af-artwork-svg' : 'absolute inset-0 overflow-visible'} fontFamily="DM Sans, sans-serif">
+  return <svg viewBox={viewBox} width={viewBox ? undefined : 4000} height={viewBox ? undefined : 4000} className={viewBox ? 'af-artwork-svg' : 'absolute inset-0 overflow-visible'} fontFamily="var(--af-graphic-font, Roboto, Arial, sans-serif)">
     <defs>
       <filter id={filterId} x="-45%" y="-45%" width="190%" height="190%" colorInterpolationFilters="sRGB">
         <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur"/>
@@ -140,10 +140,10 @@ export function TopologyArtwork({ nodes, matrix, getSpaceColor, palette, colors,
           <circle cx={node.x} cy={node.y} r={node.radius} fill={'url(#af-core-'+idPrefix+'-'+node.id+')'}/>
           {topologyTextPos==='center' ? <>
             <text x={node.x} y={node.y-(showAreaText?topologyTextSize/2:0)} fontSize={topologyTextSize} fill={colors.label} textAnchor="middle" dominantBaseline="central" fontWeight="700">{node.name.slice(0,20)}</text>
-            {showAreaText && <text x={node.x} y={node.y+topologyTextSize} fontSize="10" textAnchor="middle" fill={colors.area}>{node.area} m²</text>}
+            {showAreaText && <text x={node.x} y={node.y+topologyTextSize} fontSize={areaTextSize} textAnchor="middle" fill={colors.area}>{node.area} m²</text>}
           </> : <>
             <circle cx={node.x} cy={node.y} r="3" fill={colors.core}/>
-            {showAreaText && <text x={node.x} y={node.y+14} fontSize="10" textAnchor="middle" fill={colors.area}>{node.area} m²</text>}
+            {showAreaText && <text x={node.x} y={node.y+Math.max(14,areaTextSize+4)} fontSize={areaTextSize} textAnchor="middle" fill={colors.area}>{node.area} m²</text>}
           </>}
         </g>
         {topologyTextPos==='edge' && <g pointerEvents="none"><defs><path id={pathId} d={'M '+(node.x-radius)+' '+node.y+' A '+radius+' '+radius+' 0 1 1 '+(node.x+radius)+' '+node.y}/></defs>
@@ -162,7 +162,7 @@ export const curvedPath=(a,b)=>{
   const x=a.x+a.w/2,y=a.y+a.h/2,u=b.x+b.w/2,v=b.y+b.h/2;
   return 'M '+x+' '+y+' C '+(x+u)/2+' '+y+', '+(x+u)/2+' '+v+', '+u+' '+v;
 };
-export function FlowArtwork({ spaces, matrix, getSpaceColor, palette, colors, showAreaText, showFlows, viewBox, onNodePointerDown, onResizePointerDown, hoveredId, idPrefix='live' }) {
+export function FlowArtwork({ spaces, matrix, getSpaceColor, palette, colors, showAreaText, showFlows, labelTextSize = 11, areaTextSize = 10, viewBox, onNodePointerDown, onResizePointerDown, hoveredId, idPrefix='live' }) {
   const pairs=spaces.flatMap((a,i)=>spaces.slice(i+1).map(b=>({a,b,weight:matrix[relationKey(a.id,b.id)]||0}))).filter(p=>p.weight>0);
   return <svg viewBox={viewBox} width={viewBox ? undefined : 4000} height={viewBox ? undefined : 4000} className={viewBox?'af-artwork-svg':'absolute inset-0 overflow-visible'} fontFamily="DM Sans, sans-serif">
     <defs><marker id={'af-arrow-'+idPrefix} markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill={colors.direct}/></marker></defs>
@@ -173,26 +173,103 @@ export function FlowArtwork({ spaces, matrix, getSpaceColor, palette, colors, sh
       <g className={onNodePointerDown?'cursor-grab':''} onPointerDown={onNodePointerDown?e=>onNodePointerDown(e,node.id):undefined}>
         <rect width={node.w} height={node.h} rx="10" fill={palette.bg} stroke={getSpaceColor(node)} strokeWidth="2"/>
         <rect width={node.w} height={node.h} rx="10" fill={getSpaceColor(node)} fillOpacity=".13"/>
-        <text x={node.w/2} y={node.h/2-(showAreaText?5:0)} textAnchor="middle" dominantBaseline="central" fill={colors.label} fontSize="11" fontWeight="700">{node.name.slice(0,24)}</text>
-        {showAreaText && <text x={node.w/2} y={node.h/2+13} textAnchor="middle" dominantBaseline="central" fill={colors.area} fontSize="10">{node.area} m²</text>}
+        <text x={node.w/2} y={node.h/2-(showAreaText?areaTextSize/2:0)} textAnchor="middle" dominantBaseline="central" fill={colors.label} fontSize={labelTextSize} fontWeight="700">{node.name.slice(0,24)}</text>
+        {showAreaText && <text x={node.w/2} y={node.h/2+Math.max(13,areaTextSize+3)} textAnchor="middle" dominantBaseline="central" fill={colors.area} fontSize={areaTextSize}>{node.area} m²</text>}
       </g>
       {onResizePointerDown && <path d={'M '+(node.w-12)+' '+(node.h-2)+' L '+(node.w-2)+' '+(node.h-12)} stroke={colors.label} strokeWidth="2" className="cursor-nwse-resize" onPointerDown={e=>onResizePointerDown(e,node.id)}/>}
     </g>)}
   </svg>;
 }
 
-export function GraphicStyleControls({ selectedPaletteId, setSelectedPaletteId, palettes, customPalette, colorMode, setColorMode, shuffle, colors, overrides, setOverrides }) {
-  const [open,setOpen]=useState(false);
-  const fields=[
-    ['bg','Fondo'],['text','Texto general'],['lines','Retícula'],['direct','Línea directa'],['indirect','Línea indirecta'],['label','Texto recintos'],['area','Texto áreas'],['core','Núcleo burbujas'],['blend','Fusión intermedia'],['legendBg','Fondo leyenda'],['legendBorder','Borde leyenda']
+function NumericSize({ name, value, onChange, min = 6, max = 32 }) {
+  const update = (raw) => {
+    const next = Number(raw);
+    if (Number.isFinite(next)) onChange(Math.max(min, Math.min(max, Math.round(next))));
+  };
+  return <label className="af-size-setting"><span>{name}</span>
+    <div className="af-size-inputs">
+      <input type="range" aria-label={'Deslizador '+name} min={min} max={max} value={value} onChange={e=>update(e.target.value)}/>
+      <input type="number" aria-label={'Tamaño '+name} min={min} max={max} value={value} onChange={e=>update(e.target.value)}/>
+      <small>px</small>
+    </div>
+  </label>;
+}
+
+export function GraphicStyleControls({ selectedPaletteId, setSelectedPaletteId, palettes, customPalette, colorMode, setColorMode, shuffle, colors, overrides, setOverrides, typography, setTypography, paletteColors, imageColors, onImageUpload }) {
+  const [open, setOpen] = useState(false);
+  const [section, setSection] = useState('typography');
+  const [target, setTarget] = useState('label');
+  const uploadRef = useRef(null);
+  const colorGroups = [
+    { title:'Lienzo y líneas', fields:[['bg','Fondo'],['text','Texto general'],['lines','Retícula'],['direct','Relación directa'],['indirect','Relación indirecta']] },
+    { title:'Textos y burbujas', fields:[['label','Texto de recintos'],['area','Texto de áreas'],['core','Centro de burbuja'],['blend','Fusión entre burbujas']] },
+    { title:'Leyenda', fields:[['legendBg','Fondo de leyenda'],['legendBorder','Borde de leyenda']] }
   ];
+  const available = [...new Set((paletteColors||[]).filter(c=>/^#[0-9a-f]{6}$/i.test(c)).map(c=>c.toLowerCase()))];
+  const updateTypography=(key,value)=>setTypography(prev=>({...prev,[key]:value}));
+  const selectColor=(color)=>setOverrides(prev=>({...prev,[target]:color}));
+  const changePalette=(id)=>{
+    setSelectedPaletteId(id);
+    setOverrides({});
+  };
   return <div className="af-style-toolbar">
-    <select aria-label="Paleta de colores" value={selectedPaletteId} onChange={e=>setSelectedPaletteId(e.target.value)}>{palettes.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}{customPalette&&<option value="custom_image">{customPalette.name}</option>}</select>
-    <select aria-label="Distribución de colores" value={colorMode} onChange={e=>setColorMode(e.target.value)}><option value="macro">Por zona</option><option value="subzone">Por subzona</option><option value="auto">Automática</option></select>
-    <button type="button" onClick={shuffle} title="Redistribuir los colores de los recintos">↻ Colores</button>
-    <button type="button" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>{open?'Cerrar ajustes':'Avanzado'}</button>
-    {open && <div className="af-style-panel"><div className="af-style-panel-heading"><strong>ESTILOS AVANZADOS</strong><button onClick={()=>setOverrides({})}>Restablecer</button></div><p>Los cambios se sincronizan en diagramas, matriz y láminas.</p><div className="af-style-grid">
-      {fields.map(([field,label])=><label key={field}><span>{label}</span><input type="color" aria-label={label} value={overrides[field]||colors[field]||'#888888'} onChange={e=>setOverrides(prev=>({...prev,[field]:e.target.value}))}/></label>)}
-    </div></div>}
+    <select aria-label="Paleta de colores" value={selectedPaletteId} onChange={e=>changePalette(e.target.value)}>
+      {palettes.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+      {customPalette&&<option value="custom_image">{customPalette.name}</option>}
+    </select>
+    <select aria-label="Distribución de colores" value={colorMode} onChange={e=>setColorMode(e.target.value)}>
+      <option value="macro">Por zona</option><option value="subzone">Por subzona</option><option value="auto">Automática</option>
+    </select>
+    <button type="button" onClick={shuffle} title="Redistribuir colores de recintos">↻ Colores</button>
+    <button type="button" className="af-editor-open" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>{open?'Cerrar editor':'Avanzado'}</button>
+    {open&&<div className="af-style-panel">
+      <header className="af-style-panel-heading">
+        <div><strong>ESTUDIO GRÁFICO</strong><span>Edición vinculada a diagramas y láminas</span></div>
+        <button type="button" onClick={()=>setOpen(false)} aria-label="Cerrar editor gráfico">✕</button>
+      </header>
+      <nav className="af-style-tabs" aria-label="Apartados de diseño">
+        <button type="button" className={section==='typography'?'active':''} onClick={()=>setSection('typography')}>Tipografía</button>
+        <button type="button" className={section==='colors'?'active':''} onClick={()=>setSection('colors')}>Colores</button>
+        <button type="button" className={section==='image'?'active':''} onClick={()=>setSection('image')}>Paleta de imagen</button>
+      </nav>
+      {section==='typography'&&<section className="af-editor-section">
+        <h3>Tipografía</h3><p>Modifica los textos de todos los diagramas y su versión de impresión.</p>
+        <label className="af-font-select"><span>Tipo de letra</span><select aria-label="Tipo de letra" value={typography.fontFamily} onChange={e=>updateTypography('fontFamily',e.target.value)}>
+          {['Roboto','DM Sans','Montserrat','Arial','Georgia','IBM Plex Mono'].map(font=><option key={font} value={font}>{font}</option>)}
+        </select></label>
+        <NumericSize name="texto recintos" value={typography.labelSize} onChange={v=>updateTypography('labelSize',v)}/>
+        <NumericSize name="texto áreas" value={typography.areaSize} onChange={v=>updateTypography('areaSize',v)}/>
+        <div className="af-typography-preview" style={{fontFamily:typography.fontFamily}}>
+          <div style={{fontSize:typography.labelSize,fontWeight:700}}>Sala de exposiciones</div>
+          <div style={{fontSize:typography.areaSize}}>250 m²</div>
+        </div>
+      </section>}
+      {section==='colors'&&<section className="af-editor-section">
+        <div className="af-editor-heading"><h3>Colores avanzados</h3><button type="button" onClick={()=>setOverrides({})}>Restablecer ajustes</button></div>
+        <p>Elige qué elemento modificar; debajo encontrarás los colores disponibles de la paleta seleccionada.</p>
+        {colorGroups.map(group=><div key={group.title} className="af-color-group">
+          <h4>{group.title}</h4><div className="af-style-grid">
+            {group.fields.map(([field,label])=><label key={field} className={field===target?'active':''} onClick={()=>setTarget(field)}><span>{label}</span><input type="color" aria-label={label} value={overrides[field]||colors[field]||'#888888'} onFocus={()=>setTarget(field)} onChange={e=>{setTarget(field);setOverrides(prev=>({...prev,[field]:e.target.value}));}}/></label>)}
+          </div>
+        </div>)}
+        <div className="af-swatches-panel"><div><strong>Colores guardados de la paleta</strong><small>Aplicar a: {colorGroups.flatMap(g=>g.fields).find(([key])=>key===target)?.[1]}</small></div>
+          <div className="af-swatches" role="group" aria-label="Colores guardados de la paleta">
+            {available.map((color,i)=><button type="button" key={color} className="af-swatch" title={color} aria-label={'Aplicar color '+color+' a '+target} style={{backgroundColor:color}} onClick={()=>selectColor(color)}><span>{i+1}</span></button>)}
+          </div>
+          {available.length===0&&<p>No hay colores extraídos todavía. Selecciona una paleta o carga una imagen.</p>}
+        </div>
+      </section>}
+      {section==='image'&&<section className="af-editor-section">
+        <h3>Paleta desde imagen</h3><p>Extrae los colores presentes en una imagen. No se añaden colores aleatorios ni colores de otras paletas.</p>
+        <input ref={uploadRef} type="file" accept="image/*" className="af-hidden-input" aria-label="Archivo de imagen para paleta" onChange={onImageUpload}/>
+        <button type="button" className="af-upload-button" onClick={()=>uploadRef.current?.click()}>Cargar imagen y extraer colores</button>
+        {imageColors.length>0?<><div className="af-saved-heading">Colores extraídos y guardados ({imageColors.length})</div>
+          <div className="af-swatches" role="group" aria-label="Colores extraídos de la imagen">
+            {imageColors.map((color,i)=><button type="button" key={i} title={color} aria-label={'Color extraído '+color} style={{backgroundColor:color}} className="af-swatch" onClick={()=>{setTarget('label');setSection('colors');setOverrides(prev=>({...prev,label:color}));}}><span>{i+1}</span></button>)}
+          </div>
+          <button type="button" className="af-use-image" onClick={()=>changePalette('custom_image')}>Usar los colores de esta imagen</button></>:<p>Selecciona una imagen para crear tu paleta.</p>}
+        <p>También puedes asignar cada muestra a textos, líneas o fondos desde el apartado Colores.</p>
+      </section>}
+    </div>}
   </div>;
 }
