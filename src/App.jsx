@@ -120,6 +120,7 @@ export default function App() {
   const [colorMode, setColorMode] = useState('macro');
   const [matrixShape, setMatrixShape] = useState('triangular');
   const [matrixDisplayMode, setMatrixDisplayMode] = useState('mixto');
+  const [matrixLegendPos, setMatrixLegendPos] = useState({ x: 20, y: 16 });
   const [selectedPaletteId, setSelectedPaletteId] = useState('minimalist'); 
   const [customPalette, setCustomPalette] = useState(null);
   const [extractedColors, setExtractedColors] = useState([]);
@@ -249,11 +250,11 @@ export default function App() {
         <header className="workspace-header"><div className="breadcrumb"><span>ESPACIO DE TRABAJO</span><span>/</span><strong>{activeModule.label}</strong></div><div className="workspace-label"><span className="status-dot"/>Proyecto de ejemplo<span className="header-initial">AF</span></div></header>
         <div className="module-stage" key={activeTab}>
         {activeTab === 'spaces' && <SpacesView spaces={spaces} addSpace={addSpace} removeSpace={removeSpace} handleSpaceUpdate={handleSpaceUpdate} colorMode={colorMode} setColorMode={setColorMode} getSpaceColor={getSpaceColor} currentPalette={currentPalette} onExcelImport={handleExcelImport} importPreviewData={importPreviewData} importHeaders={importHeaders} importMapping={importMapping} setImportMapping={setImportMapping} confirmImport={confirmImport} cancelImport={() => setImportPreviewData(null)} importSheetNames={importSheetNames} selectedSheet={selectedSheet} onSheetChange={(e) => processExcelSheet(importWorkbook, e.target.value)} setSpaces={setSpaces} isGeneratingAI={isGeneratingAI} setIsGeneratingAI={setIsGeneratingAI} />}
-        {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix} matrixShape={matrixShape} setMatrixShape={setMatrixShape} matrixDisplayMode={matrixDisplayMode} setMatrixDisplayMode={setMatrixDisplayMode} />}
+        {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix} matrixShape={matrixShape} setMatrixShape={setMatrixShape} matrixDisplayMode={matrixDisplayMode} setMatrixDisplayMode={setMatrixDisplayMode} legendPos={matrixLegendPos} setLegendPos={setMatrixLegendPos} />}
         {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setSpaces} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize} />}
         {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} showAreaText={showAreaText} setShowAreaText={setShowAreaText} />}
         {activeTab === 'floorplan' && <FloorPlanView spaces={spaces} matrix={matrix} proposals={floorPlanProposals} setProposals={setFloorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} />}
-        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize} matrixShape={matrixShape} matrixDisplayMode={matrixDisplayMode} />}
+        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize} matrixShape={matrixShape} matrixDisplayMode={matrixDisplayMode} legendPos={matrixLegendPos} />}
         </div>
         <footer className="workspace-footer"><span><span className="status-dot"/>Sesión local · sin guardado permanente</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
       </main>
@@ -388,13 +389,15 @@ function SpacesView({ spaces, addSpace, removeSpace, handleSpaceUpdate, colorMod
 // ==========================================
 // VISTA 2: MATRIZ FUNCIONAL
 // ==========================================
-function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceColor, triangular = true, mode = 'mixto', editable = true }) {
+function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceColor, triangular = true, mode = 'mixto', editable = true, legendPos = {x:20,y:16}, setLegendPos }) {
   const layout = matrixLayout(spaces.length, triangular);
   const { roomWidth, rowHeight, headerHeight, half } = layout;
+  const [dragLegend, setDragLegend] = useState(false);
+  const legendDrag = useRef(null);
   const total = room => spaces.filter(other => other.id !== room.id && getRelation(room.id, other.id) > 0).length;
   const diamond = (i, j) => {
     const row = spaces[i], col = spaces[j], same = i === j;
-    const value = same ? 0 : getRelation(row.id, col.id);
+    const value = same ? 0 : Math.min(2, Math.max(0, getRelation(row.id, col.id)));
     const { x, y } = matrixCell(layout, i, j);
     const active = editable && !same;
     const label = 'Relación entre ' + row.name + ' y ' + col.name + ': ' + value + '. Clic para cambiar.';
@@ -417,12 +420,13 @@ function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceC
   return <div className="fm-sheet" style={{width:layout.width, minWidth:layout.width}} aria-label="Matriz funcional arquitectónica">
     <svg className="fm-svg" width={layout.width} height={layout.height} viewBox={'0 0 '+layout.width+' '+layout.height}
       aria-label={triangular ? 'Matriz triangular alineada y cerrada' : 'Matriz cuadrada'}>
-      <rect width={roomWidth} height={headerHeight} fill="#f4f6f2" />
+      <rect x="1" y="1" width={roomWidth-2} height={headerHeight-2} rx="11" fill="#f4f6f2" stroke="#dce2db" />
+      <text x={roomWidth+12} y="33" className="fm-head-text">RELACIONES ENTRE RECINTOS</text>
       <text x="18" y="33" className="fm-head-text">N.º / RECINTO ARQUITECTÓNICO</text>
       <text x={roomWidth-83} y="33" textAnchor="middle" className="fm-head-text">ÁREA</text>
       <text x={roomWidth-22} y="33" textAnchor="middle" className="fm-head-text">Σ</text>
       {spaces.map((room,i)=>{
-        const top=headerHeight+i*rowHeight, mid=top+half, color=getSpaceColor(room);
+        const top=layout.rowStart+i*rowHeight, mid=top+half, color=getSpaceColor(room);
         return <g key={'room-'+room.id}>
           <path d={matrixRowShape(layout,i)} fill="#fff" stroke="#d5ded7" strokeWidth="1" />
           <path d={matrixRowShape(layout,i)} fill={color} fillOpacity=".19" pointerEvents="none" />
@@ -430,9 +434,9 @@ function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceC
           <text x="18" y={mid} dominantBaseline="middle" className="fm-row-label">
             {(i+1)+'. '+(room.name.length>39 ? room.name.slice(0,37)+'…':room.name)}
           </text>
-          <text x={roomWidth-78} y={mid} textAnchor="end" dominantBaseline="middle"
+          <text x={roomWidth-96} y={mid} textAnchor="end" dominantBaseline="middle"
             className="fm-row-info">{Number(room.area||0).toLocaleString('es-PE',{maximumFractionDigits:1})} m²</text>
-          <text x={roomWidth-40} y={mid} textAnchor="middle" dominantBaseline="middle"
+          <text x={roomWidth-58} y={mid} textAnchor="middle" dominantBaseline="middle"
             className="fm-row-total">{total(room)}</text>
         </g>;
       })}
@@ -448,6 +452,21 @@ function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceC
         ? spaces.flatMap((room,i)=>spaces.slice(i+1).map((col,k)=>diamond(i,i+k+1)))
         : spaces.flatMap((room,i)=>spaces.map((col,j)=>diamond(i,j)))}
       <path d={matrixOutline(layout)} className="fm-perimeter" pointerEvents="none" />
+      <g transform={'translate(' + Math.max(0, Math.min(layout.width-330, legendPos.x)) + ' ' + (layout.rowStart + spaces.length*rowHeight + Math.max(0,Math.min(34,legendPos.y))) + ')'}
+        className={editable ? 'fm-svg-legend fm-svg-legend-movable' : 'fm-svg-legend'}
+        style={{cursor:editable?'grab':'default',touchAction:'none'}}
+        onPointerDown={editable && setLegendPos ? e => {e.preventDefault();e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);legendDrag.current={x:e.clientX,y:e.clientY,pos:legendPos,scale:e.currentTarget.ownerSVGElement.getBoundingClientRect().width/layout.width};setDragLegend(true);} : undefined}
+        onPointerMove={editable && setLegendPos ? e => {if(!legendDrag.current)return;const d=legendDrag.current;setLegendPos({x:Math.max(0,Math.min(layout.width-330,d.pos.x+(e.clientX-d.x)/d.scale)),y:Math.max(0,Math.min(34,d.pos.y+(e.clientY-d.y)/d.scale))});} : undefined}
+        onPointerUp={editable ? e => {if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);legendDrag.current=null;setDragLegend(false);} : undefined}
+        aria-label="Leyenda de relaciones; arrastra para mover">
+        <rect width="326" height="40" rx="9" fill="#fff" stroke="#d8dfd8"/>
+        <rect x="10" y="12" width="12" height="12" fill="none" stroke="#9ba79c"/>
+        <text x="28" y="22" className="fm-legend-svg-text">0 Nula</text>
+        <line x1="97" y1="19" x2="121" y2="19" stroke="#434b44" strokeWidth="2" strokeDasharray="5 4"/>
+        <text x="128" y="22" className="fm-legend-svg-text">1 Indirecta</text>
+        <line x1="218" y1="19" x2="242" y2="19" stroke="#434b44" strokeWidth="2"/>
+        <text x="249" y="22" className="fm-legend-svg-text">2 Directa</text>
+      </g>
     </svg>
   </div>;
 }
@@ -461,7 +480,7 @@ function MatrixLegend() {
   </div>;
 }
 
-function MatrixView({spaces,getRelation,cycleRelation,getSpaceColor,isGeneratingMatrix,setIsGeneratingMatrix,setMatrix,matrixShape,setMatrixShape,matrixDisplayMode,setMatrixDisplayMode}) {
+function MatrixView({spaces,getRelation,cycleRelation,getSpaceColor,isGeneratingMatrix,setIsGeneratingMatrix,setMatrix,matrixShape,setMatrixShape,matrixDisplayMode,setMatrixDisplayMode,legendPos,setLegendPos}) {
   const triangular=matrixShape==='triangular';
   const randomize=()=>{
     if(!window.confirm('La demostración aleatoria sustituirá las relaciones actuales. ¿Continuar?'))return;
@@ -494,8 +513,8 @@ function MatrixView({spaces,getRelation,cycleRelation,getSpaceColor,isGenerating
       </fieldset>
     </div>
     <div className="fm-canvas-scroll"><FunctionalMatrixGraphic spaces={spaces} getRelation={getRelation}
-      cycleRelation={cycleRelation} getSpaceColor={getSpaceColor} triangular={triangular} mode={matrixDisplayMode}/></div>
-    <MatrixLegend />
+      cycleRelation={cycleRelation} getSpaceColor={getSpaceColor} triangular={triangular} mode={matrixDisplayMode} legendPos={legendPos} setLegendPos={setLegendPos}/></div>
+    <p className="fm-legend-hint">Arrastra la leyenda dentro del gráfico para ajustar su posición.</p>
   </div>;
 }
 
@@ -805,7 +824,7 @@ function FloorPlanView({ spaces, matrix, proposals, setProposals, currentPalette
 // ==========================================
 // VISTA 6: ESTUDIO DE IMPRESIÓN
 // ==========================================
-function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, shuffleCustomPalette, customBgMode, setCustomBackground, showAreaText, topologyTextPos, topologyTextSize, matrixShape, matrixDisplayMode }) {
+function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, shuffleCustomPalette, customBgMode, setCustomBackground, showAreaText, topologyTextPos, topologyTextSize, matrixShape, matrixDisplayMode, legendPos }) {
   const [selectedViews, setSelectedViews] = useState({ matrix: true, topology: true, flowdiagram: true }); const [isExporting, setIsExporting] = useState(false); const [pageFormat, setPageFormat] = useState({ w: 420, h: 297 }); const fileInputRef = useRef(null);
   const toggleView = (v) => setSelectedViews(prev => ({ ...prev, [v]: !prev[v] }));
   const getBBox = (mode) => { let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; spaces.forEach(s => { if (mode === 'flow') { minX = Math.min(minX, s.x); minY = Math.min(minY, s.y); maxX = Math.max(maxX, s.x + (s.w || 100)); maxY = Math.max(maxY, s.y + (s.h || 100)); } else { const rad = Math.max(30, Math.sqrt(s.area || 10) * 8); minX = Math.min(minX, s.x - rad); minY = Math.min(minY, s.y - rad); maxX = Math.max(maxX, s.x + rad); maxY = Math.max(maxY, s.y + rad); } }); if(minX === Infinity) return "0 0 800 600"; const pad = 100; return `${minX - pad} ${minY - pad} ${maxX - minX + pad*2} ${maxY - minY + pad*2}`; };
@@ -828,7 +847,7 @@ function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpace
 
   const MatrixContent = () => (
     <FunctionalMatrixGraphic spaces={spaces} getRelation={getRelation} getSpaceColor={getSpaceColor}
-      triangular={matrixShape === 'triangular'} mode={matrixDisplayMode} editable={false} />
+      triangular={matrixShape === 'triangular'} mode={matrixDisplayMode} editable={false} legendPos={legendPos} />
   );
 
   const FlowContent = () => (
@@ -899,7 +918,7 @@ function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpace
 
   return (
     <div className="flex flex-col h-full bg-[#f6f6f2] overflow-hidden">
-      <div id="print-node-matrix" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="fm-print-wrapper"><MatrixContent /><MatrixLegend /></div></div>
+      <div id="print-node-matrix" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="fm-print-wrapper"><MatrixContent /></div></div>
       <div id="print-node-flowdiagram" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="absolute inset-0 opacity-10" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `40px 40px` }}></div><FlowContent /></div>
       <div id="print-node-topology" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><TopologyContent /></div>
       
