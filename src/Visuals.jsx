@@ -75,18 +75,40 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
     <svg className="af-matrix-svg" role="group" aria-label="Matriz triangular romboidal de relaciones" viewBox={'0 0 '+width+' '+height} style={{ minWidth: 760 }}>
       <text x="15" y="29" fill={palette.text} opacity=".8" fontWeight="700" fontSize="11">Nº / RECINTO ARQUITECTÓNICO</text>
       <text x="277" y="29" fill={palette.text} fontWeight="700" fontSize="11">ÁREA</text>
-      <text x="321" y="29" fill={colors.direct} fontWeight="700" fontSize="11">Σ</text>
+      <text x={left-11} y="29" fill={palette.text} fontWeight="700" textAnchor="middle" fontSize="11">Σ</text>
       {spaces.map((space,i)=>{
+        // La sumatoria conserva la lógica anterior: número de vínculos no nulos (1 o 3).
         const count = spaces.reduce((n,s) => n + (s.id === space.id ? 0 : getRelation(space.id,s.id) > 0 ? 1 : 0),0);
-        return <g key={space.id}>
-          <rect x="13" y={top+i*h} width="4" height={h-1} fill={getSpaceColor(space)}/>
-          <line x1="13" y1={top+(i+1)*h} x2={left} y2={top+(i+1)*h} stroke={palette.lines} strokeWidth=".8"/>
-          <text x="26" y={top+i*h+h*.62} fill={getSpaceColor(space)} fontSize={labelTextSize} fontWeight="650">{(i+1)+'. '+space.name.slice(0,29)}</text>
-          <text x="289" y={top+i*h+h*.62} fill={palette.text} opacity=".80" textAnchor="end" fontSize={areaTextSize}>{space.area+'m²'}</text>
-          <text x="326" y={top+i*h+h*.62} fill={colors.direct} textAnchor="middle" fontSize="11" fontWeight="700">{count}</text>
+        const y0=top+i*h, y1=y0+h, cy=y0+h/2;
+        const tone=getSpaceColor(space);
+        // La punta de la fila coincide con el vértice superior del primer rombo.
+        // No se agrega ni se elimina ninguna celda de la matriz de relaciones.
+        const tipX=left+h/2, shoulderX=left-h/2, sumX=left-11;
+        const pentagonPoints=`13,${y0+0.5} ${shoulderX},${y0+0.5} ${tipX},${cy} ${shoulderX},${y1-0.5} 13,${y1-0.5}`;
+        const hex=/^#([0-9a-f]{6})$/i.exec(tone);
+        const luminance=hex ? [1,3,5].map(k=>parseInt(hex[1].slice(k-1,k+1),16)/255).map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)).reduce((n,v,k)=>n+v*[.2126,.7152,.0722][k],0) : .15;
+        const numberColor=luminance>.37?'#1b1b18':'#ffffff';
+        return <g key={space.id} className="af-matrix-row" data-space-id={space.id}>
+          <polygon
+            className="af-matrix-row-pentagon"
+            points={pentagonPoints}
+            fill={withAlpha(tone,.15)}
+            stroke={withAlpha(tone,.45)}
+            strokeWidth=".85"
+            strokeLinejoin="round"
+          />
+          <rect x="13" y={y0+1} width="4.5" height={h-2} fill={tone}/>
+          <line x1="18" y1={y1-.5} x2={shoulderX} y2={y1-.5} stroke={palette.lines} strokeOpacity=".48" strokeWidth=".55"/>
+          <text x="26" y={y0+h*.62} fill={tone} fontSize={labelTextSize} fontWeight="650">{(i+1)+'. '+space.name.slice(0,Math.max(9,Math.min(29,Math.floor(29*11/labelTextSize))))}</text>
+          <text x={left-49} y={y0+h*.62} fill={palette.text} opacity=".80" textAnchor="end" fontSize={areaTextSize}>{space.area+' m²'}</text>
+          <g className="af-matrix-sum" aria-label={space.name+': '+count+' relaciones'} role="img">
+            <title>{'Total de vínculos de '+space.name+': '+count}</title>
+            <circle cx={sumX} cy={cy} r="11" fill={tone} stroke={palette.bg} strokeWidth="1.8"/>
+            <text x={sumX} y={cy+3.8} textAnchor="middle" fontSize="11" fill={numberColor} fontWeight="700">{count}</text>
+          </g>
         </g>;
       })}
-      <line x1={left} y1={top} x2={left} y2={top+spaces.length*h} stroke={palette.lines}/>
+      <line x1={left} y1={top} x2={left} y2={top+spaces.length*h} stroke={palette.lines} strokeOpacity=".12" strokeWidth=".8" />
       {spaces.map((a,i)=> spaces.slice(i+1).map((b,offset)=>{
         const j=i+offset+1;
         return makeCell(a,b,left+h*(j-i)/2,top+h*(i+j+1)/2,true);
