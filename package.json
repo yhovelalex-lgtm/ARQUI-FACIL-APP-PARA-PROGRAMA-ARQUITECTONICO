@@ -11,7 +11,9 @@
     "test:diagrams": "node scripts/diagrams.mjs",
     "audit:original": "node scripts/audit-original.mjs"
   },
-  "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.0",
     "@fontsource/ibm-plex-mono": "^5.2.0",
@@ -20,7 +22,8 @@
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "jspdf": "^4.2.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

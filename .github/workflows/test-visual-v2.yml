@@ -1,0 +1,30 @@
+name: Verificar rediseño visual
+on:
+  push:
+    branches:
+      - feature/graficos-matriz-laminas-v2
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Compilación Vite
+        run: npm run build
+      - name: Validación de código y componentes
+        run: node scripts/verify-visuals.mjs
+      - name: Instalar Chromium para pruebas funcionales
+        run: npx playwright install --with-deps chromium
+      - name: Validar navegador y exportación PDF
+        run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/arqui-vite.log 2>&1 &
+          sleep 5
+          node scripts/verify-browser.mjs
+          npm run test:diagrams
