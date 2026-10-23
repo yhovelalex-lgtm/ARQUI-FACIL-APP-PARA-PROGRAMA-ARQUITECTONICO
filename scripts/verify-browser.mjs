@@ -21,6 +21,12 @@ try{
  assert.ok((await page.locator('.af-matrix-row-pentagon').first().getAttribute('fill')).startsWith('#'),'Colores de recintos conservados');
  const firstCount=await page.locator('.af-matrix-row .af-matrix-sum text').first().textContent();
  assert.equal(firstCount,'6','Se conserva el número de relaciones iniciales del Hall');
+ assert.equal(await page.locator('.af-matrix-row-pentagon').first().getAttribute('fill'),'#22221e14','Las filas siguen el estilo monocromático');
+ assert.equal(await page.locator('.af-matrix-relation-dot').count(),10,'Se mantienen todos los vínculos no nulos del ejemplo');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-cell text').count(),0,'Los círculos triangulares no muestran números');
+ assert.equal(await page.locator('.af-matrix-relation-2').first().getAttribute('fill'),'#3d4541','Relación directa oscura');
+ assert.equal(await page.locator('.af-matrix-relation-1').first().getAttribute('fill'),'#b9c4bc','Relación indirecta clara');
+
 
  const first=page.getByRole('button',{name:'Relación entre Hall y Reception: 2. Clic para cambiar.'});
  await first.click();
