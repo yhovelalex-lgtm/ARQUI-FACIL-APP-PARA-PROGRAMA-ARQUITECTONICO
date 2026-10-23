@@ -52,7 +52,8 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
   const cell=(a,b,x,y,diamond=false)=>{
     const raw=getRelation(a.id,b.id);
     const value=relationshipScore(raw);
-    const tone=value===2?colors.direct:colors.indirect;
+    const neutral=palette.bg.toLowerCase()==='#fbfbf8';
+    const tone=neutral?(value===2?'#3d4541':'#aebbb1'):(value===2?colors.direct:colors.indirect);
     const label='Relación entre '+a.name+' y '+b.name+': '+value+'. Clic para cambiar.';
     const activate=()=>{if(onCycleRelation)onCycleRelation(a.id,b.id);};
     return <g key={relationKey(a.id,b.id)}
@@ -70,7 +71,7 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
         : <rect x={x-h/2+1} y={y-h/2+1} width={h-2} height={h-2} rx="2" fill={palette.bg} stroke={palette.lines} strokeWidth=".9"/>
       }
       {value!==0&&<circle className={'af-matrix-relation-dot af-matrix-relation-'+value}
-        cx={x} cy={y} r="10.5" fill={value===2?tone:withAlpha(tone,.32)}/>}
+        cx={x} cy={y} r="10.5" fill={value===2?tone:neutral?'#b9c4bc':withAlpha(tone,.50)}/>}
       {!diamond&&value!==0&&<text x={x} y={y+3.5} fontSize="10" textAnchor="middle" fontWeight="700" fill={value===2?'#fff':palette.text}>{value}</text>}
     </g>;
   };
