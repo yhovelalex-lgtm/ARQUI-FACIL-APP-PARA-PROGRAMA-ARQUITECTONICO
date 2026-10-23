@@ -44,7 +44,28 @@ export function LegendOverlay({ title = 'SIMBOLOGÍA DE VÍNCULO', items, positi
   );
 }
 
-export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceColor, palette, colors, variant = 'diamond', labelTextSize = 11, areaTextSize = 10 }) {
+
+/** WCAG-aware foreground for relation symbols, including translucent fills. */
+export function readableRelationText(fill, background='#ffffff') {
+  const hex=(input)=>{
+    const raw=String(input||'').replace(/^#/,'');
+    const expanded=/^[0-9a-f]{3,4}$/i.test(raw)?[...raw].map(c=>c+c).join(''):raw;
+    if(!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(expanded))return null;
+    return {
+      channels:[0,2,4].map(i=>parseInt(expanded.slice(i,i+2),16)),
+      opacity:expanded.length===8?parseInt(expanded.slice(6,8),16)/255:1
+    };
+  };
+  const bg=hex(background)||{channels:[255,255,255],opacity:1};
+  const fg=hex(fill)||{channels:[51,51,51],opacity:1};
+  const rgb=fg.channels.map((channel,i)=>channel*fg.opacity+bg.channels[i]*(1-fg.opacity));
+  const linear=value=>{const normalized=value/255;return normalized<=.04045?normalized/12.92:Math.pow((normalized+.055)/1.055,2.4);};
+  const lum=rgb.reduce((sum,channel,i)=>sum+linear(channel)*[.2126,.7152,.0722][i],0);
+  // Compare black vs white contrast ratios. Both shades are intentionally neutral.
+  return (lum+.05)/.05 >= 1.05/(lum+.05) ? '#171a19' : '#ffffff';
+}
+
+export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceColor, palette, colors, variant = 'diamond', labelTextSize = 11, areaTextSize = 10, displayMode = 'both' }) {
   if (!spaces.length) return null;
   const h=39, top=52, left=330;
   const width=Math.max(785,left+h*spaces.length/2+255);
@@ -55,6 +76,11 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
     const neutral=palette.bg.toLowerCase()==='#fbfbf8';
     const tone=neutral?(value===2?(colors.direct==='#57574e'?'#3d4541':colors.direct):(colors.indirect==='#20201c'?'#b9c4bc':colors.indirect)):(value===2?colors.direct:colors.indirect);
     const label='Relación entre '+a.name+' y '+b.name+': '+value+'. Clic para cambiar.';
+    // The visual presentation never changes the underlying relation or its weighted Σ.
+    const dotFill=value===2?tone:neutral?tone:withAlpha(tone,.50);
+    const showDot=value!==0 && displayMode!=='number';
+    const showNumber=value!==0 && displayMode!=='graphic';
+    const numberFill=readableRelationText(showDot?dotFill:palette.bg,palette.bg);
     const activate=()=>{if(onCycleRelation)onCycleRelation(a.id,b.id);};
     return <g key={relationKey(a.id,b.id)}
       className={'af-matrix-cell'+(onCycleRelation?' af-matrix-cell-interactive':'')}
@@ -70,9 +96,11 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
           fill={palette.bg} stroke={palette.lines} strokeWidth=".86"/>
         : <rect x={x-h/2+1} y={y-h/2+1} width={h-2} height={h-2} rx="2" fill={palette.bg} stroke={palette.lines} strokeWidth=".9"/>
       }
-      {value!==0&&<circle className={'af-matrix-relation-dot af-matrix-relation-'+value}
-        cx={x} cy={y} r="10.5" fill={value===2?tone:neutral?tone:withAlpha(tone,.50)}/>}
-      {!diamond&&value!==0&&<text x={x} y={y+3.5} fontSize="10" textAnchor="middle" fontWeight="700" fill={value===2?'#fff':palette.text}>{value}</text>}
+      {showDot&&<circle className={'af-matrix-relation-dot af-matrix-relation-'+value}
+        cx={x} cy={y} r="10.5" fill={dotFill}/>}
+      {showNumber&&<text className={'af-matrix-relation-number af-matrix-relation-number-'+value}
+        x={x} y={y+3.5} fontSize="10.5" textAnchor="middle" fontWeight="700"
+        fill={numberFill} pointerEvents="none">{value}</text>}
     </g>;
   };
   if(variant==='square')return <svg className="af-matrix-svg" role="group" aria-label="Matriz de relaciones cuadrada"
