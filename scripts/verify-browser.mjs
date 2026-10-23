@@ -23,7 +23,19 @@ try{
  assert.equal(firstCount,'6','Se conserva el número de relaciones iniciales del Hall');
  assert.equal(await page.locator('.af-matrix-row-pentagon').first().getAttribute('fill'),'#22221e14','Las filas siguen el estilo monocromático');
  assert.equal(await page.locator('.af-matrix-relation-dot').count(),10,'Se mantienen todos los vínculos no nulos del ejemplo');
- assert.equal(await page.locator('.af-matrix-triangular .af-matrix-cell text').count(),0,'Los círculos triangulares no muestran números');
+ assert.equal(await page.getByRole('combobox',{name:'Visualización de relaciones'}).inputValue(),'both','Por defecto gráfico y número');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-number').count(),10,'Modo combinado muestra valores numéricos');
+ const darkNumber=page.locator('.af-matrix-relation-number-2').first();
+ const lightNumber=page.locator('.af-matrix-relation-number-1').first();
+ assert.equal(await darkNumber.getAttribute('fill'),'#ffffff','Contraste claro sobre esfera oscura');
+ assert.equal(await lightNumber.getAttribute('fill'),'#171a19','Contraste oscuro sobre esfera clara');
+ await page.getByRole('combobox',{name:'Visualización de relaciones'}).selectOption('graphic');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-number').count(),0,'Solo gráfico oculta números');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-dot').count(),10,'Solo gráfico mantiene esferas');
+ await page.getByRole('combobox',{name:'Visualización de relaciones'}).selectOption('number');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-dot').count(),0,'Solo número oculta esferas');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-number').count(),10,'Solo número conserva números');
+ await page.getByRole('combobox',{name:'Visualización de relaciones'}).selectOption('both');
  assert.equal(await page.locator('.af-matrix-relation-2').first().getAttribute('fill'),'#3d4541','Relación directa oscura');
  assert.equal(await page.locator('.af-matrix-relation-1').first().getAttribute('fill'),'#b9c4bc','Relación indirecta clara');
 
