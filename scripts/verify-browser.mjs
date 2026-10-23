@@ -14,12 +14,12 @@ try{
  await matrix.waitFor();
  assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),55,'Triangular debe tener 55 pares');
  assert.equal(await page.locator('.af-matrix-row-pentagon').count(),11,'Cada recinto tiene una pieza pentagonal');
- assert.equal(await page.locator('.af-matrix-row .af-matrix-sum circle').count(),11,'Sumatoria integrada en cada fila');
+ assert.equal(await page.locator('.af-matrix-sum circle').count(),11,'Sumatoria integrada en cada fila');
  const firstPentagon=await page.locator('.af-matrix-row-pentagon').first().getAttribute('points');
  const points=firstPentagon.trim().split(/\s+/);
  assert.equal(points.length,5,'Cada terminación conserva cinco vértices');
  assert.ok((await page.locator('.af-matrix-row-pentagon').first().getAttribute('fill')).startsWith('#'),'Colores de recintos conservados');
- const firstCount=await page.locator('.af-matrix-row .af-matrix-sum text').first().textContent();
+ const firstCount=await page.locator('.af-matrix-sum text').first().textContent();
  assert.equal(firstCount,'6','Se conserva el número de relaciones iniciales del Hall');
  assert.equal(await page.locator('.af-matrix-row-pentagon').first().getAttribute('fill'),'#22221e14','Las filas siguen el estilo monocromático');
  assert.equal(await page.locator('.af-matrix-relation-dot').count(),10,'Se mantienen todos los vínculos no nulos del ejemplo');
