@@ -61,7 +61,7 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
     <div className="af-sheet-header"><strong>ARQUI<span>FÁCIL</span></strong><div><span>ESTUDIO DE PROGRAMA ARQUITECTÓNICO</span><b>{viewMeta.find(v=>v.id===id)?.title}</b></div><small>{'LÁMINA '+String(index+1).padStart(2,'0')}</small></div>
     <div className={'af-sheet-body af-sheet-body-'+id+' af-sheet-layout-'+printLegendPlacement} style={{borderColor:currentPalette.lines}}>
       <div className="af-sheet-graphic">{artwork(id)}</div>
-      {meta[id] && printLegendPlacement!=='hidden' && <div className="af-sheet-legend-region">
+      {meta[id] && printLegendPlacement!=='hidden' && <div className="af-sheet-legend-region" style={printLegendPlacement==='editor'?{left:meta[id].x+'%',top:meta[id].y+'%',width:'auto',height:'auto'}:undefined}>
         <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={printLegendPlacement==='editor'?meta[id]:{x:0,y:0}} printable items={legendItems}/>
       </div>}
     </div>
