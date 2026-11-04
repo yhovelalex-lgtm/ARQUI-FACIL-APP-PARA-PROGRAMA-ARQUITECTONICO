@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1600,height:950},acceptDownloads:true});
@@ -7,7 +8,9 @@ page.on('pageerror',error=>errors.push(error.message));
 async function module(name){await page.getByRole('navigation').getByRole('button',{name:new RegExp(name)}).click();await page.waitForTimeout(150);}
 const url=process.env.BASE_URL||'http://127.0.0.1:5173/';
 try{
- await page.goto(url);await module('Matriz funcional');
+ await page.goto(url);
+ await page.getByRole('textbox',{name:'Nombre del proyecto'}).fill('Proyecto de prueba persistente');
+ await module('Matriz funcional');
  assert.equal(await page.getByRole('combobox',{name:'Paleta de colores'}).inputValue(),'minimalist','Paleta minimalista por defecto');
  assert.equal(await page.locator('.af-matrix-board').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(251, 251, 248)','Fondo inicial claro en matriz');
  const matrix=page.getByRole('group',{name:'Matriz triangular romboidal de relaciones'});
@@ -44,6 +47,23 @@ try{
  await first.click();
  await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).waitFor({timeout:6000});
  assert.equal(await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).count(),1,'Edición debe funcionar');
+ // Verificar persistencia real del estado de la matriz, la vista y el nombre.
+ await page.locator('.af-project-status-saved').waitFor({timeout:8000});
+ const storageBeforeReload=await page.evaluate(()=>localStorage.getItem('arqui-facil:workspace:v1'));
+ assert.ok(storageBeforeReload?.includes('Proyecto de prueba persistente'),'Guardado local contiene el proyecto');
+ await page.reload();
+ assert.equal(await page.getByRole('textbox',{name:'Nombre del proyecto'}).inputValue(),'Proyecto de prueba persistente');
+ assert.equal(await page.getByRole('combobox',{name:'Visualización de relaciones'}).inputValue(),'both');
+ assert.equal(await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).count(),1,'La relación persiste tras actualizar');
+ // Se descarga un JSON y se vuelve a importar después de cambiar el nombre.
+ const [backup]=await Promise.all([page.waitForEvent('download',{timeout:10000}),page.getByRole('button',{name:'Descargar copia'}).click()]);
+ assert.ok(backup.suggestedFilename().endsWith('.arqui-facil.json'),'Formato de respaldo reconocido');
+ const backupBytes=await readFile(await backup.path());
+ await page.getByRole('textbox',{name:'Nombre del proyecto'}).fill('Nombre temporal');
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('input[aria-label="Seleccionar copia JSON del proyecto"]').setInputFiles({name:'copia.arqui-facil.json',mimeType:'application/json',buffer:backupBytes});
+ await page.waitForFunction(()=>document.querySelector('input[aria-label="Nombre del proyecto"]')?.value==='Proyecto de prueba persistente');
+ assert.equal(await page.getByRole('textbox',{name:'Nombre del proyecto'}).inputValue(),'Proyecto de prueba persistente','El archivo importado recupera el proyecto');
  await page.getByRole('button',{name:'FORMA: TRIANGULAR'}).click();
  assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),110,'Cuadrada mantiene 110 celdas');
  await page.getByRole('button',{name:'FORMA: CUADRADA'}).click();
