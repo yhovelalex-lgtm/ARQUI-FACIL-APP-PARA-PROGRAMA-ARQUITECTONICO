@@ -13,16 +13,17 @@ const viewMeta = [
 const viewBoxFor = (nodes, type) => {
   if (!nodes.length) return '0 0 800 600';
   const bounds=nodes.map(n=>{
-    const r=type==='topology'?(n.radius||Math.max(30,Math.sqrt(Math.max(n.area||1,1))*8))+25:25;
+    const r=type==='topology'?(n.radius||Math.max(30,Math.sqrt(Math.max(n.area||1,1))*8))*1.8+54:25;
     return type==='topology'?[n.x-r,n.y-r,n.x+r,n.y+r]:[n.x-r,n.y-r,n.x+(n.w||120)+r,n.y+(n.h||80)+r];
   });
   const minX=Math.min(...bounds.map(b=>b[0])),minY=Math.min(...bounds.map(b=>b[1]));
   const maxX=Math.max(...bounds.map(b=>b[2])),maxY=Math.max(...bounds.map(b=>b[3]));
-  return [minX-55,minY-55,Math.max(220,maxX-minX+110),Math.max(180,maxY-minY+110)].join(' ');
+  return [minX-25,minY-25,Math.max(220,maxX-minX+50),Math.max(180,maxY-minY+50)].join(' ');
 };
 
 export default function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, showAreaText, topologyTextPos, topologyTextSize, matrixTriangular, topologyNodes, showGooey, gooeyStrength, showFlows, floorPlanProposals, colors, typography, legendPositions, graphicControls, selectedViews, setSelectedViews, pageFormat, setPageFormat, printDpi, setPrintDpi, matrixDisplayMode }) {
   const [isExporting,setIsExporting]=useState(false);
+  const [printLegendPlacement,setPrintLegendPlacement]=useState('bottom');
   const [exportError,setExportError]=useState('');
   const inputRef=useRef(null);
   const validViews=viewMeta.filter(v=>v.id!=='floorplan'||floorPlanProposals.length>0);
@@ -42,7 +43,7 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
   ];
 
   const artwork=(id)=>{
-    if(id==='matrix')return <div className="af-sheet-matrix"><MatrixDiamond spaces={spaces} getRelation={getRelation} palette={currentPalette} getSpaceColor={getSpaceColor} colors={colors} variant={matrixTriangular?'diamond':'square'} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} displayMode={matrixDisplayMode}/></div>;
+    if(id==='matrix')return <div className="af-sheet-matrix"><MatrixDiamond spaces={spaces} getRelation={getRelation} palette={currentPalette} getSpaceColor={getSpaceColor} colors={colors} variant={matrixTriangular?'diamond':'square'} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} displayMode={matrixDisplayMode} printFit/></div>;
     if(id==='topology')return <TopologyArtwork nodes={topology} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showGooey={showGooey} gooeyStrength={gooeyStrength} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={typography.labelSize} areaTextSize={typography.areaSize} viewBox={viewBoxFor(topology,'topology')} idPrefix="print-topology"/>;
     if(id==='flowdiagram')return <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showAreaText={showAreaText} showFlows={showFlows} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} viewBox={viewBoxFor(spaces,'flow')} idPrefix="print-flow"/>;
     if(id==='program')return <table className="af-sheet-program"><thead><tr><th>Nº</th><th>Recinto arquitectónico</th><th>Zona</th><th>Área</th></tr></thead><tbody>{spaces.map((s,i)=><tr key={s.id}><td>{i+1}</td><td style={{color:getSpaceColor(s)}}>{s.name}</td><td>{s.subzone||s.zone}</td><td>{s.area} m²</td></tr>)}</tbody><tfoot><tr><td colSpan="3">ÁREA TOTAL</td><td>{spaces.reduce((a,s)=>a+Number(s.area||0),0).toFixed(2)} m²</td></tr></tfoot></table>;
@@ -58,9 +59,11 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
   };
   const sheet=(id,index)=><div id={'af-sheet-preview-'+id} className="af-sheet-page" key={id} style={{aspectRatio:pageFormat.w+'/'+pageFormat.h,background:currentPalette.bg,color:currentPalette.text,borderColor:currentPalette.lines,fontFamily:typography.fontFamily}}>
     <div className="af-sheet-header"><strong>ARQUI<span>FÁCIL</span></strong><div><span>ESTUDIO DE PROGRAMA ARQUITECTÓNICO</span><b>{viewMeta.find(v=>v.id===id)?.title}</b></div><small>{'LÁMINA '+String(index+1).padStart(2,'0')}</small></div>
-    <div className={'af-sheet-body af-sheet-body-'+id} style={{borderColor:currentPalette.lines}}>
-      {artwork(id)}
-      {meta[id]&&<LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={meta[id]} printable items={legendItems}/>}
+    <div className={'af-sheet-body af-sheet-body-'+id+' af-sheet-layout-'+printLegendPlacement} style={{borderColor:currentPalette.lines}}>
+      <div className="af-sheet-graphic">{artwork(id)}</div>
+      {meta[id] && printLegendPlacement!=='hidden' && <div className="af-sheet-legend-region">
+        <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={printLegendPlacement==='editor'?meta[id]:{x:0,y:0}} printable items={legendItems}/>
+      </div>}
     </div>
     <div className="af-sheet-footer"><span>ARQUI-FÁCIL / PROGRAMA ARQUITECTÓNICO</span><span>{spaces.length} RECINTOS · {spaces.reduce((a,s)=>a+Number(s.area||0),0).toLocaleString('es-PE')} m²</span><span>{pageFormat.w+' × '+pageFormat.h+' mm'}</span></div>
   </div>;
@@ -99,6 +102,7 @@ export default function PrintStudioView({ spaces, matrix, getRelation, currentPa
     <div className="af-print-header">
       <div><h2><Palette size={20}/> Estudio de <b>láminas</b></h2><p>Las láminas usan los datos, colores, relaciones y geometría configurados en cada módulo.</p></div>
       <div className="af-print-actions">
+        <label>LEYENDA <select aria-label="Ubicación de leyenda para impresión" value={printLegendPlacement} onChange={e=>setPrintLegendPlacement(e.target.value)}><option value="bottom">Inferior · sin tapar gráfico</option><option value="right">Derecha · sin tapar gráfico</option><option value="hidden">Ocultar en láminas</option><option value="editor">Misma ubicación del editor</option></select></label>
         <label>CALIDAD <select aria-label="Resolución de impresión" value={printDpi} onChange={e=>setPrintDpi(Number(e.target.value))}><option value={150}>150 ppp · Borrador</option><option value={200}>200 ppp · Estándar</option><option value={300}>300 ppp · Alta</option></select></label>
         <label>FORMATO <select aria-label="Formato de papel" value={pageFormat.w+'x'+pageFormat.h} onChange={e=>{const [w,h]=e.target.value.split('x').map(Number);setPageFormat({w,h});}}><option value="420x297">A3 horizontal</option><option value="297x420">A3 vertical</option><option value="297x210">A4 horizontal</option><option value="210x297">A4 vertical</option><option value="594x420">A2 horizontal</option></select></label>
         <button className="af-print-image" title="Extraer paleta desde una imagen" onClick={()=>inputRef.current?.click()}><ImagePlus size={16}/> Imagen</button><input type="file" accept="image/*" ref={inputRef} style={{display:'none'}} onChange={handleImageUpload}/>
