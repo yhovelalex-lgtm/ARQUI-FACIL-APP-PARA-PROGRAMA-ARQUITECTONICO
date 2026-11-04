@@ -92,6 +92,21 @@ try{
  assert.ok(await page.locator('.af-sheet-body-matrix .af-matrix-svg').count()>0,'La matriz de impresión comparte su renderizador');
  assert.equal(await page.locator('.af-sheet-body-topology svg').count(),1,'Topología reproducida');
  assert.equal(await page.locator('.af-sheet-body-flowdiagram svg').count(),1,'Relaciones reproducidas');
+ // En impresión la retícula se encuadra sin las márgenes del lienzo interactivo.
+ const printedMatrix=page.locator('.af-sheet-body-matrix .af-matrix-svg');
+ const bounds=(await printedMatrix.getAttribute('viewBox')).split(/\s+/).map(Number);
+ assert.ok(bounds[2]<700,'La matriz de once recintos no tiene márgenes laterales sobrantes');
+ assert.ok(await printedMatrix.evaluate(el=>el.getBoundingClientRect().width)>100,'Gráfico visible en la lámina');
+ const printLegend=page.locator('.af-sheet-body-matrix .af-sheet-legend-region');
+ const graphicRect=await page.locator('.af-sheet-body-matrix .af-sheet-graphic').boundingBox();
+ const legendRect=await printLegend.boundingBox();
+ assert.ok(graphicRect&&legendRect&&legendRect.y>=graphicRect.y+graphicRect.height-2,'Leyenda inferior sin superposición');
+ await page.getByRole('combobox',{name:'Ubicación de leyenda para impresión'}).selectOption('right');
+ assert.ok(await page.locator('.af-sheet-body-matrix.af-sheet-layout-right').count()===1,'Opción lateral aplicada');
+ await page.getByRole('combobox',{name:'Ubicación de leyenda para impresión'}).selectOption('hidden');
+ assert.ok(await page.locator('.af-sheet-body-matrix .af-sheet-legend-region').count()===0,'Leyenda ocultable');
+ await page.getByRole('combobox',{name:'Ubicación de leyenda para impresión'}).selectOption('bottom');
+
  const [download]=await Promise.all([page.waitForEvent('download',{timeout:45000}),page.getByRole('button',{name:'Exportar PDF'}).click()]);
  assert.ok(download.suggestedFilename().endsWith('.pdf'),'PDF descargado');
  assert.deepEqual(errors,[],'No debe haber errores JavaScript');
