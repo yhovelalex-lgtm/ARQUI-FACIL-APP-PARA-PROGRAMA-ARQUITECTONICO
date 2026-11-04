@@ -21,9 +21,8 @@ const viewBoxFor = (nodes, type) => {
   return [minX-25,minY-25,Math.max(220,maxX-minX+50),Math.max(180,maxY-minY+50)].join(' ');
 };
 
-export default function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, showAreaText, topologyTextPos, topologyTextSize, matrixTriangular, topologyNodes, showGooey, gooeyStrength, showFlows, floorPlanProposals, colors, typography, legendPositions, graphicControls, selectedViews, setSelectedViews, pageFormat, setPageFormat, printDpi, setPrintDpi, matrixDisplayMode }) {
+export default function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, showAreaText, topologyTextPos, topologyTextSize, matrixTriangular, topologyNodes, showGooey, gooeyStrength, showFlows, floorPlanProposals, colors, typography, legendPositions, graphicControls, selectedViews, setSelectedViews, pageFormat, setPageFormat, printDpi, setPrintDpi, matrixDisplayMode, printLegendPlacement, setPrintLegendPlacement }) {
   const [isExporting,setIsExporting]=useState(false);
-  const [printLegendPlacement,setPrintLegendPlacement]=useState('bottom');
   const [exportError,setExportError]=useState('');
   const inputRef=useRef(null);
   const validViews=viewMeta.filter(v=>v.id!=='floorplan'||floorPlanProposals.length>0);
