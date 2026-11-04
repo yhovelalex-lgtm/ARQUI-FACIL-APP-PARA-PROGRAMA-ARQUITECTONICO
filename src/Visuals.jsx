@@ -65,11 +65,12 @@ export function readableRelationText(fill, background='#ffffff') {
   return (lum+.05)/.05 >= 1.05/(lum+.05) ? '#171a19' : '#ffffff';
 }
 
-export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceColor, palette, colors, variant = 'diamond', labelTextSize = 11, areaTextSize = 10, displayMode = 'both' }) {
+export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceColor, palette, colors, variant = 'diamond', labelTextSize = 11, areaTextSize = 10, displayMode = 'both', printFit = false }) {
   if (!spaces.length) return null;
   const h=39, top=52, left=330;
-  const width=Math.max(785,left+h*spaces.length/2+255);
-  const height=top+spaces.length*h+34;
+  // Preserve the generous live editor canvas, but crop unused drawing space on print sheets.
+  const width=printFit?Math.max(400,left+h*(spaces.length-1)/2+48):Math.max(785,left+h*spaces.length/2+255);
+  const height=top+spaces.length*h+(printFit?18:34);
   const cell=(a,b,x,y,diamond=false)=>{
     const raw=getRelation(a.id,b.id);
     const value=relationshipScore(raw);
@@ -104,7 +105,7 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
     </g>;
   };
   if(variant==='square')return <svg className="af-matrix-svg" role="group" aria-label="Matriz de relaciones cuadrada"
-    viewBox={'0 0 '+(left+spaces.length*h+30)+' '+height} style={{minWidth:Math.max(680,left+spaces.length*h+30)}}>
+    viewBox={'0 0 '+(left+spaces.length*h+(printFit?12:30))+' '+height} style={printFit?undefined:{minWidth:Math.max(680,left+spaces.length*h+30)}}>
     <text x="16" y="28" fill={palette.text} fontSize="12" fontWeight="700">Nº / RECINTO ARQUITECTÓNICO</text>
     {spaces.map((space,i)=><g key={space.id}>
       <text x="16" y={top+i*h+25} fill={getSpaceColor(space)} fontSize={labelTextSize}>{(i+1)+'. '+space.name}</text>
@@ -124,7 +125,7 @@ export function MatrixDiamond({ spaces, getRelation, onCycleRelation, getSpaceCo
   });
   return <svg className="af-matrix-svg af-matrix-triangular" role="group"
     aria-label="Matriz triangular romboidal de relaciones"
-    viewBox={'0 0 '+width+' '+height} style={{minWidth:760}}>
+    viewBox={'0 0 '+width+' '+height} style={printFit?undefined:{minWidth:760}}>
     <rect className="af-matrix-header-panel" x="13" y="9" width={left-h/2-2} height="32" rx="8"
       fill={withAlpha(palette.text,.032)} stroke={palette.lines} strokeWidth=".7"/>
     <text x="25" y="30" fill={palette.text} fontWeight="700" fontSize="10.6">Nº / RECINTO ARQUITECTÓNICO</text>
