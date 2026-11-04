@@ -134,6 +134,8 @@ export default function App() {
   const [printSelectedViews,setPrintSelectedViews]=useState(() => savedValue('printSelectedViews',{program:false,matrix:true,flowdiagram:true,topology:true,floorplan:false}));
   const [printPageFormat,setPrintPageFormat]=useState(() => savedValue('printPageFormat',{w:420,h:297}));
   const [printDpi,setPrintDpi]=useState(() => savedValue('printDpi',200));
+  const [printLegendPlacement,setPrintLegendPlacement]=useState(() => savedValue('printLegendPlacement','bottom'));
+
   const [selectedPaletteId, setSelectedPaletteId] = useState(() => savedValue('selectedPaletteId','minimalist')); 
   const [customPalette, setCustomPalette] = useState(() => savedValue('customPalette',null));
   const [extractedColors, setExtractedColors] = useState(() => savedValue('extractedColors',[]));
@@ -154,7 +156,7 @@ export default function App() {
     projectName,activeTab,spaces,matrix,floorPlanProposals,colorMode,colorSeed,
     styleOverrides,matrixTriangular,topologyNodes,matrixDisplayMode,showGooey,
     gooeyStrength,showFlows,legendPositions,printSelectedViews,printPageFormat,
-    printDpi,selectedPaletteId,customPalette,extractedColors,customBgMode,
+    printDpi,printLegendPlacement,selectedPaletteId,customPalette,extractedColors,customBgMode,
     showAreaText,topologyTextPos,topologyTextSize,typography
   };
   const latestSnapshot=useRef(projectSnapshot);
@@ -183,7 +185,7 @@ export default function App() {
   },[projectName,activeTab,spaces,matrix,floorPlanProposals,colorMode,colorSeed,
     styleOverrides,matrixTriangular,topologyNodes,matrixDisplayMode,showGooey,
     gooeyStrength,showFlows,legendPositions,printSelectedViews,printPageFormat,
-    printDpi,selectedPaletteId,customPalette,extractedColors,customBgMode,
+    printDpi,printLegendPlacement,selectedPaletteId,customPalette,extractedColors,customBgMode,
     showAreaText,topologyTextPos,topologyTextSize,typography,persistNow]);
 
   useEffect(()=>{
@@ -217,6 +219,7 @@ export default function App() {
         styleOverrides:setStyleOverrides,matrixTriangular:setMatrixTriangular,topologyNodes:setTopologyNodes,
         matrixDisplayMode:setMatrixDisplayMode,showGooey:setShowGooey,gooeyStrength:setGooeyStrength,
         showFlows:setShowFlows,legendPositions:setLegendPositions,
+        printLegendPlacement:setPrintLegendPlacement,
         printSelectedViews:setPrintSelectedViews,printPageFormat:setPrintPageFormat,printDpi:setPrintDpi,
         selectedPaletteId:setSelectedPaletteId,customPalette:setCustomPalette,extractedColors:setExtractedColors,
         customBgMode:setCustomBgMode,showAreaText:setShowAreaText,
@@ -353,7 +356,7 @@ export default function App() {
         {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setTopologyNodes} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize}  savedNodes={topologyNodes} showGooey={showGooey} setShowGooey={setShowGooey} gooeyStrength={gooeyStrength} setGooeyStrength={setGooeyStrength} colors={colors} typography={typography} legendPosition={legendPositions.topology} onLegendPositionChange={changeLegend('topology')} controls={graphicControls} />}
         {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} showAreaText={showAreaText} setShowAreaText={setShowAreaText}  showFlows={showFlows} setShowFlows={setShowFlows} colors={colors} typography={typography} setStyleOverrides={setStyleOverrides} legendPosition={legendPositions.flowdiagram} onLegendPositionChange={changeLegend('flowdiagram')} controls={graphicControls} />}
         {activeTab === 'floorplan' && <FloorPlanView spaces={spaces} matrix={matrix} proposals={floorPlanProposals} setProposals={setFloorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} />}
-        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize}  matrixTriangular={matrixTriangular} topologyNodes={topologyNodes} showGooey={showGooey} gooeyStrength={gooeyStrength} showFlows={showFlows} colors={colors} typography={typography} legendPositions={legendPositions} graphicControls={graphicControls} selectedViews={printSelectedViews} setSelectedViews={setPrintSelectedViews} pageFormat={printPageFormat} setPageFormat={setPrintPageFormat} printDpi={printDpi} setPrintDpi={setPrintDpi} matrixDisplayMode={matrixDisplayMode} />}
+        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize}  matrixTriangular={matrixTriangular} topologyNodes={topologyNodes} showGooey={showGooey} gooeyStrength={gooeyStrength} showFlows={showFlows} colors={colors} typography={typography} legendPositions={legendPositions} graphicControls={graphicControls} selectedViews={printSelectedViews} setSelectedViews={setPrintSelectedViews} pageFormat={printPageFormat} setPageFormat={setPrintPageFormat} printDpi={printDpi} setPrintDpi={setPrintDpi} matrixDisplayMode={matrixDisplayMode} printLegendPlacement={printLegendPlacement} setPrintLegendPlacement={setPrintLegendPlacement} />}
         </div>
         <footer className="workspace-footer"><span><span className="status-dot"/>Guardado local automático · descarga una copia para mayor seguridad</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
       </main>
