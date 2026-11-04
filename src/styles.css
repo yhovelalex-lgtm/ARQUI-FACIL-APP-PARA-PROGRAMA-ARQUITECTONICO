@@ -117,3 +117,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* Fuente seleccionable de todos los gráficos arquitectónicos */
 .af-matrix-svg,.af-artwork-svg,.af-legend,.af-sheet-page,.af-graph-container,.af-sheet-program{font-family:var(--af-graphic-font,Roboto,Arial,sans-serif)}
+
+
+/* Proyecto: estado de guardado y copias de seguridad, sin alterar los controles gráficos. */
+.workspace-header{flex-wrap:wrap;row-gap:8px;padding-top:10px;padding-bottom:10px}
+.af-project-save{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:7px;min-width:0;flex:1}
+.af-project-name-field{min-width:130px;max-width:210px;flex:1}
+.af-project-name-field input{display:block;width:100%;min-width:0;border:1px solid #deded5;border-radius:7px;background:#fff;color:#262621;font-size:12px;font-weight:700;padding:9px 10px;outline:none;text-overflow:ellipsis}
+.af-project-name-field input:focus{border-color:#59594e;box-shadow:0 0 0 2px #77776218}
+.af-project-status{display:flex;align-items:center;gap:5px;font-size:10px;color:#63645b;white-space:nowrap}
+.af-project-status-saved{color:#396149}
+.af-project-status-error{color:#9b4133}
+.af-project-status-saving{color:#77776c}
+.af-project-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px;border:1px solid #dadad1;border-radius:7px;background:#fcfcfa;color:#30312b;font-weight:650;font-size:10px;white-space:nowrap}
+.af-project-action:hover{background:#eeeee8;border-color:#a5a599}
+.af-project-action:focus-visible{outline:2px solid #77776b;outline-offset:2px}
+@media (max-width:1250px){
+  .af-project-save{justify-content:flex-start;width:100%}
+  .af-project-name-field{max-width:225px}
+  .workspace-header{align-items:flex-start}
+}
+@media(max-width:650px){
+  .af-project-save{gap:6px}
+  .af-project-action{font-size:9px;padding:8px}
+  .af-project-status{font-size:9px}
+  .af-project-name-field{flex:1 1 100%;max-width:none}
+}
