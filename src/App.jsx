@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import ProjectSaveControls from './ProjectSaveControls.jsx';
+import { PROJECT_FIELDS, loadProjectFromBrowser, saveProjectToBrowser, makeProjectEnvelope, parseProjectFile } from './projectPersistence.js';
 import { MatrixDiamond, TopologyArtwork, FlowArtwork, LegendOverlay, GraphicStyleControls, relationKey } from './Visuals.jsx';
 import PrintStudioView from './PrintStudio.jsx';
 import './visuals.css';
@@ -87,9 +89,15 @@ const FloorPlanEngine = {
 // COMPONENTE PRINCIPAL (REACT UI)
 // ==========================================
 export default function App() {
-  const [activeTab, setActiveTab] = useState('spaces'); 
+  // Carga síncrona: los datos recuperados se aplican antes del primer render.
+  const [initialLoad] = useState(() => loadProjectFromBrowser());
+  const savedValue = (key, fallback) => initialLoad.data && Object.hasOwn(initialLoad.data,key) ? initialLoad.data[key] : fallback;
+  const [projectName,setProjectName] = useState(() => savedValue('projectName','Mi proyecto'));
+  const [saveStatus,setSaveStatus] = useState(initialLoad.error?'error':initialLoad.data?'saved':'pending');
+  const [savedAt,setSavedAt] = useState(initialLoad.savedAt);
+  const [activeTab, setActiveTab] = useState(() => savedValue('activeTab','spaces')); 
   
-  const [spaces, setSpaces] = useState([
+  const [spaces, setSpaces] = useState(() => savedValue('spaces',[
     { id: 'hall', name: 'Hall', area: 120, zone: 'circulation', subzone: 'Distribución', x: 280, y: 260, w: 140, h: 80, pinned: false },
     { id: 'recep', name: 'Reception', area: 100, zone: 'social', subzone: 'Atención', x: 440, y: 260, w: 120, h: 80, pinned: false },
     { id: 'biblio', name: 'Bibliothèque', area: 250, zone: 'social', subzone: 'Lectura', x: 60, y: 200, w: 180, h: 200, pinned: false },
@@ -101,11 +109,11 @@ export default function App() {
     { id: 'esc2', name: 'Escaliers', area: 30, zone: 'circulation', subzone: 'Vertical', x: 580, y: 220, w: 50, h: 60, pinned: false },
     { id: 'cafe', name: 'Café', area: 90, zone: 'social', subzone: 'Gastronomía', x: 400, y: 380, w: 120, h: 80, pinned: false },
     { id: 'scene', name: 'Scène en Direct', area: 350, zone: 'social', subzone: 'Espectáculo', x: 280, y: 520, w: 280, h: 160, pinned: false }
-  ]);
+  ]));
   
-  const [matrix,setMatrix]=useState(()=>Object.fromEntries([['hall','biblio',3],['hall','recep',3],['hall','esc1',3],['recep','serv',1],['recep','cine',3],['recep','cafe',3],['recep','exhib',3],['exhib','audi',3],['exhib','esc2',3],['cafe','scene',3]].map(([a,b,v])=>[relationKey(a,b),v])));
+  const [matrix,setMatrix]=useState(()=>savedValue('matrix',Object.fromEntries([['hall','biblio',3],['hall','recep',3],['hall','esc1',3],['recep','serv',1],['recep','cine',3],['recep','cafe',3],['recep','exhib',3],['exhib','audi',3],['exhib','esc2',3],['cafe','scene',3]].map(([a,b,v])=>[relationKey(a,b),v]))));
 
-  const [floorPlanProposals, setFloorPlanProposals] = useState([]);
+  const [floorPlanProposals, setFloorPlanProposals] = useState(() => savedValue('floorPlanProposals',[]));
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
   // Estados de Excel
@@ -117,29 +125,107 @@ export default function App() {
   const [selectedSheet, setSelectedSheet] = useState('');
 
   // ESTADOS DE COLOR Y ESTILOS
-  const [colorMode, setColorMode] = useState('macro');
-  const [colorSeed,setColorSeed]=useState(0),[styleOverrides,setStyleOverrides]=useState({});
-  const [matrixTriangular,setMatrixTriangular]=useState(true),[topologyNodes,setTopologyNodes]=useState([]);
-  const [matrixDisplayMode,setMatrixDisplayMode]=useState('both');
-  const [showGooey,setShowGooey]=useState(true),[gooeyStrength,setGooeyStrength]=useState(1.8),[showFlows,setShowFlows]=useState(false);
-  const [legendPositions,setLegendPositions]=useState({matrix:{x:72,y:3},topology:{x:73,y:5},flowdiagram:{x:73,y:5}});
-  const [printSelectedViews,setPrintSelectedViews]=useState({program:false,matrix:true,flowdiagram:true,topology:true,floorplan:false});
-  const [printPageFormat,setPrintPageFormat]=useState({w:420,h:297});
-  const [printDpi,setPrintDpi]=useState(200);
-  const [selectedPaletteId, setSelectedPaletteId] = useState('minimalist'); 
-  const [customPalette, setCustomPalette] = useState(null);
-  const [extractedColors, setExtractedColors] = useState([]);
-  const [customBgMode, setCustomBgMode] = useState('light');
+  const [colorMode, setColorMode] = useState(() => savedValue('colorMode','macro'));
+  const [colorSeed,setColorSeed]=useState(() => savedValue('colorSeed',0)),[styleOverrides,setStyleOverrides]=useState(() => savedValue('styleOverrides',{}));
+  const [matrixTriangular,setMatrixTriangular]=useState(() => savedValue('matrixTriangular',true)),[topologyNodes,setTopologyNodes]=useState(() => savedValue('topologyNodes',[]));
+  const [matrixDisplayMode,setMatrixDisplayMode]=useState(() => savedValue('matrixDisplayMode','both'));
+  const [showGooey,setShowGooey]=useState(() => savedValue('showGooey',true)),[gooeyStrength,setGooeyStrength]=useState(() => savedValue('gooeyStrength',1.8)),[showFlows,setShowFlows]=useState(() => savedValue('showFlows',false));
+  const [legendPositions,setLegendPositions]=useState(() => savedValue('legendPositions',{matrix:{x:72,y:3},topology:{x:73,y:5},flowdiagram:{x:73,y:5}}));
+  const [printSelectedViews,setPrintSelectedViews]=useState(() => savedValue('printSelectedViews',{program:false,matrix:true,flowdiagram:true,topology:true,floorplan:false}));
+  const [printPageFormat,setPrintPageFormat]=useState(() => savedValue('printPageFormat',{w:420,h:297}));
+  const [printDpi,setPrintDpi]=useState(() => savedValue('printDpi',200));
+  const [selectedPaletteId, setSelectedPaletteId] = useState(() => savedValue('selectedPaletteId','minimalist')); 
+  const [customPalette, setCustomPalette] = useState(() => savedValue('customPalette',null));
+  const [extractedColors, setExtractedColors] = useState(() => savedValue('extractedColors',[]));
+  const [customBgMode, setCustomBgMode] = useState(() => savedValue('customBgMode','light'));
 
   // NUEVOS ESTADOS GLOBALES DE TEXTO Y ÁREA
-  const [showAreaText, setShowAreaText] = useState(true);
-  const [topologyTextPos, setTopologyTextPos] = useState('edge'); // 'edge' | 'center'
-  const [topologyTextSize, setTopologyTextSize] = useState(11);
-  const [typography,setTypography]=useState({fontFamily:'Roboto',labelSize:11,areaSize:10});
+  const [showAreaText, setShowAreaText] = useState(() => savedValue('showAreaText',true));
+  const [topologyTextPos, setTopologyTextPos] = useState(() => savedValue('topologyTextPos','edge')); // 'edge' | 'center'
+  const [topologyTextSize, setTopologyTextSize] = useState(() => savedValue('topologyTextSize',11));
+  const [typography,setTypography]=useState(() => savedValue('typography',{fontFamily:'Roboto',labelSize:11,areaSize:10}));
 
   // IA States
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isGeneratingMatrix, setIsGeneratingMatrix] = useState(false);
+
+  // Contenido del proyecto (no incluye estados temporales de interfaz ni archivos Excel).
+  const projectSnapshot={
+    projectName,activeTab,spaces,matrix,floorPlanProposals,colorMode,colorSeed,
+    styleOverrides,matrixTriangular,topologyNodes,matrixDisplayMode,showGooey,
+    gooeyStrength,showFlows,legendPositions,printSelectedViews,printPageFormat,
+    printDpi,selectedPaletteId,customPalette,extractedColors,customBgMode,
+    showAreaText,topologyTextPos,topologyTextSize,typography
+  };
+  const latestSnapshot=useRef(projectSnapshot);
+  latestSnapshot.current=projectSnapshot;
+  const lastSaveError=useRef(initialLoad.error || null);
+
+  const persistNow=useCallback(()=>{
+    try{
+      const timestamp=saveProjectToBrowser(latestSnapshot.current);
+      setSavedAt(timestamp);setSaveStatus('saved');lastSaveError.current=null;
+      return true;
+    }catch(error){
+      lastSaveError.current=error.message;
+      setSaveStatus('error');
+      console.warn('[ARQUI-FÁCIL] No se guardó el proyecto:',error);
+      return false;
+    }
+  },[]);
+
+  useEffect(()=>{
+    // Un dato previamente corrupto no se sobrescribe sin acción explícita.
+    if(initialLoad.error && lastSaveError.current) return;
+    setSaveStatus('saving');
+    const timer=setTimeout(persistNow,600);
+    return ()=>clearTimeout(timer);
+  },[projectName,activeTab,spaces,matrix,floorPlanProposals,colorMode,colorSeed,
+    styleOverrides,matrixTriangular,topologyNodes,matrixDisplayMode,showGooey,
+    gooeyStrength,showFlows,legendPositions,printSelectedViews,printPageFormat,
+    printDpi,selectedPaletteId,customPalette,extractedColors,customBgMode,
+    showAreaText,topologyTextPos,topologyTextSize,typography,persistNow]);
+
+  useEffect(()=>{
+    const flush=()=>{try{saveProjectToBrowser(latestSnapshot.current);}catch{/* El último estado previo permanece intacto. */}};
+    window.addEventListener('pagehide',flush);
+    return ()=>window.removeEventListener('pagehide',flush);
+  },[]);
+
+  const exportProject=()=>{
+    try{
+      const content=JSON.stringify(makeProjectEnvelope(latestSnapshot.current),null,2);
+      const url=URL.createObjectURL(new Blob([content],{type:'application/json'}));
+      const link=document.createElement('a');
+      link.href=url;
+      const filename=String(projectName||'Proyecto-Arqui-Facil').trim().replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ_-]+/g,'-').slice(0,65);
+      link.download=(filename||'Proyecto-Arqui-Facil')+'.arqui-facil.json';
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),2000);
+    }catch(error){window.alert('No se pudo exportar el proyecto: '+error.message);}
+  };
+  const importProject=async(file)=>{
+    try{
+      if(file.size>12_000_000)throw Error('El archivo supera el límite de 12 MB.');
+      const {data}=parseProjectFile(await file.text());
+      if(!window.confirm('Se reemplazará el proyecto actual por el archivo seleccionado. Antes puedes descargar una copia de seguridad. ¿Continuar?'))return;
+      // Guardar primero una copia válida, antes de actualizar el estado visible.
+      const timestamp=saveProjectToBrowser(data);
+      const setters={
+        projectName:setProjectName,activeTab:setActiveTab,spaces:setSpaces,matrix:setMatrix,
+        floorPlanProposals:setFloorPlanProposals,colorMode:setColorMode,colorSeed:setColorSeed,
+        styleOverrides:setStyleOverrides,matrixTriangular:setMatrixTriangular,topologyNodes:setTopologyNodes,
+        matrixDisplayMode:setMatrixDisplayMode,showGooey:setShowGooey,gooeyStrength:setGooeyStrength,
+        showFlows:setShowFlows,legendPositions:setLegendPositions,
+        printSelectedViews:setPrintSelectedViews,printPageFormat:setPrintPageFormat,printDpi:setPrintDpi,
+        selectedPaletteId:setSelectedPaletteId,customPalette:setCustomPalette,extractedColors:setExtractedColors,
+        customBgMode:setCustomBgMode,showAreaText:setShowAreaText,
+        topologyTextPos:setTopologyTextPos,topologyTextSize:setTopologyTextSize,typography:setTypography
+      };
+      for(const field of PROJECT_FIELDS)if(Object.hasOwn(data,field)&&setters[field])setters[field](data[field]);
+      lastSaveError.current=null;setSavedAt(timestamp);setSaveStatus('saved');
+    }catch(error){window.alert('No fue posible abrir esta copia: '+error.message);}
+  };
 
   const basePalette = (selectedPaletteId === 'custom_image' && customPalette) ? customPalette : PRINT_PALETTES.find(p => p.id === selectedPaletteId) || PRINT_PALETTES.find(p => p.id === 'minimalist');
   const currentPalette={...basePalette,...Object.fromEntries(['bg','text','lines'].filter(k=>styleOverrides[k]).map(k=>[k,styleOverrides[k]]))};
@@ -260,7 +346,7 @@ export default function App() {
         <div className="sidebar-bottom"><div className="sidebar-art" aria-hidden="true">{Array.from({length:12}, (_,i)=><i key={i} style={{width:`${44+i*4}%`, transform:`translateX(${i*2}px)`}}/>)}</div><span className="eyebrow">DEL PROGRAMA A LA FORMA.</span><p>Herramientas para pensar<br/>la arquitectura.</p><span className="version-tag">ESTUDIO EXPERIMENTAL · V.01</span></div>
       </aside>
       <main className="workspace">
-        <header className="workspace-header"><div className="breadcrumb"><span>ESPACIO DE TRABAJO</span><span>/</span><strong>{activeModule.label}</strong></div><div className="workspace-label"><span className="status-dot"/>Proyecto de ejemplo<span className="header-initial">AF</span></div></header>
+        <header className="workspace-header"><div className="breadcrumb"><span>ESPACIO DE TRABAJO</span><span>/</span><strong>{activeModule.label}</strong></div><ProjectSaveControls projectName={projectName} setProjectName={setProjectName} saveStatus={saveStatus} savedAt={savedAt} onSave={persistNow} onExport={exportProject} onImport={importProject}/></header>
         <div className="module-stage" key={activeTab}>
         {activeTab === 'spaces' && <SpacesView spaces={spaces} addSpace={addSpace} removeSpace={removeSpace} handleSpaceUpdate={handleSpaceUpdate} colorMode={colorMode} setColorMode={setColorMode} getSpaceColor={getSpaceColor} currentPalette={currentPalette} onExcelImport={handleExcelImport} importPreviewData={importPreviewData} importHeaders={importHeaders} importMapping={importMapping} setImportMapping={setImportMapping} confirmImport={confirmImport} cancelImport={() => setImportPreviewData(null)} importSheetNames={importSheetNames} selectedSheet={selectedSheet} onSheetChange={(e) => processExcelSheet(importWorkbook, e.target.value)} setSpaces={setSpaces} isGeneratingAI={isGeneratingAI} setIsGeneratingAI={setIsGeneratingAI} />}
         {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix}  isTriangular={matrixTriangular} setIsTriangular={setMatrixTriangular} colors={colors} typography={typography} legendPosition={legendPositions.matrix} onLegendPositionChange={changeLegend('matrix')} controls={graphicControls} displayMode={matrixDisplayMode} setDisplayMode={setMatrixDisplayMode} />}
@@ -269,7 +355,7 @@ export default function App() {
         {activeTab === 'floorplan' && <FloorPlanView spaces={spaces} matrix={matrix} proposals={floorPlanProposals} setProposals={setFloorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} />}
         {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize}  matrixTriangular={matrixTriangular} topologyNodes={topologyNodes} showGooey={showGooey} gooeyStrength={gooeyStrength} showFlows={showFlows} colors={colors} typography={typography} legendPositions={legendPositions} graphicControls={graphicControls} selectedViews={printSelectedViews} setSelectedViews={setPrintSelectedViews} pageFormat={printPageFormat} setPageFormat={setPrintPageFormat} printDpi={printDpi} setPrintDpi={setPrintDpi} matrixDisplayMode={matrixDisplayMode} />}
         </div>
-        <footer className="workspace-footer"><span><span className="status-dot"/>Sesión local · sin guardado permanente</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
+        <footer className="workspace-footer"><span><span className="status-dot"/>Guardado local automático · descarga una copia para mayor seguridad</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
       </main>
     </div>
   );
