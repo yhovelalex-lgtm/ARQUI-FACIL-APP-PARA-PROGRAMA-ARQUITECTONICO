@@ -114,3 +114,140 @@
 .af-matrix-mode-field span{font-size:9px;letter-spacing:.04em;font-weight:700}
 .af-matrix-mode-field select{min-width:148px;border:1px solid #d6d6ca;border-radius:6px;padding:8px 10px;background:#fff;color:#262621;font-size:11px}
 .af-matrix-relation-number{font-family:var(--af-graphic-font,Roboto,Arial,sans-serif);user-select:none}
+
+
+/* Impresión fiel al editor: uso completo de la lámina sin reducir el gráfico
+   por márgenes sobrantes del viewBox ni superponer leyendas. */
+.af-print-pages{
+  grid-template-columns:minmax(0,1fr);
+  max-width:1050px;
+  gap:30px;
+}
+.af-preview-item{width:100%;max-width:1050px;margin-inline:auto}
+.af-sheet-page{min-width:0}
+.af-sheet-body{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:stretch;
+  gap:0;
+  padding:1.6% 0;
+  overflow:hidden;
+}
+.af-sheet-graphic{
+  min-width:0;
+  min-height:0;
+  flex:1 1 auto;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+  position:relative;
+}
+.af-sheet-graphic>.af-artwork-svg,
+.af-sheet-graphic>.af-sheet-matrix,
+.af-sheet-graphic>svg{
+  width:100%;
+  height:100%;
+  max-height:100%;
+  max-width:100%;
+  object-fit:contain;
+}
+.af-sheet-matrix{min-width:0;min-height:0;flex:1 1 auto;overflow:hidden}
+.af-sheet-matrix>.af-matrix-svg{
+  display:block;
+  width:100%;
+  height:100%;
+  max-width:none;
+  max-height:100%;
+  min-width:0!important;
+}
+.af-sheet-legend-region{
+  flex:0 0 auto;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  padding:1.3% 0 .3%;
+  overflow:hidden;
+}
+.af-sheet-legend-region .af-legend{
+  position:relative!important;
+  left:auto!important;
+  top:auto!important;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  width:auto;
+  max-width:100%;
+  padding:7px 12px;
+  gap:8px 16px;
+  border-radius:6px;
+  font-size:9px;
+}
+.af-sheet-legend-region .af-legend-handle{
+  border-bottom:none;
+  padding:0;
+  margin:0;
+  flex:none;
+}
+.af-sheet-legend-region .af-legend-item{padding:0;white-space:nowrap}
+.af-sheet-legend-region .af-legend-print .af-legend-symbol{
+  width:17px;
+  height:17px;
+}
+.af-sheet-layout-right{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(120px,21%);
+  gap:1.5%;
+}
+.af-sheet-layout-right>.af-sheet-graphic{
+  min-width:0;
+  min-height:0;
+  width:100%;
+  height:100%;
+}
+.af-sheet-layout-right>.af-sheet-legend-region{
+  padding:0;
+  flex-direction:column;
+  justify-content:center;
+  align-items:stretch;
+  height:100%;
+}
+.af-sheet-layout-right .af-legend{
+  width:100%;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:center;
+  gap:5px;
+}
+.af-sheet-layout-right .af-legend-handle{border-bottom:1px solid;padding-bottom:5px}
+.af-sheet-layout-editor{position:relative}
+.af-sheet-layout-editor>.af-sheet-legend-region{
+  position:absolute;
+  inset:0;
+  z-index:2;
+  padding:0;
+  display:block;
+  pointer-events:none;
+}
+.af-sheet-layout-editor .af-legend{
+  position:absolute!important;
+  left:var(--unused,auto);
+  width:173px;
+  max-width:28%;
+  pointer-events:none;
+  display:block;
+}
+.af-sheet-layout-editor .af-legend-item{padding:2px 0}
+.af-sheet-layout-hidden>.af-sheet-graphic{height:100%}
+.af-sheet-graphic>.af-sheet-program{max-height:100%;overflow:hidden}
+@media (max-width:640px){
+  .af-print-pages{grid-template-columns:minmax(0,1fr)}
+  .af-sheet-legend-region .af-legend{gap:4px 9px;font-size:7px;padding:4px}
+  .af-sheet-legend-region .af-legend-print .af-legend-symbol{width:12px;height:12px}
+  .af-sheet-layout-right{grid-template-columns:minmax(0,1fr) minmax(74px,22%)}
+}
