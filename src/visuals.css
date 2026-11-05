@@ -251,3 +251,14 @@
   .af-sheet-legend-region .af-legend-print .af-legend-symbol{width:12px;height:12px}
   .af-sheet-layout-right{grid-template-columns:minmax(0,1fr) minmax(74px,22%)}
 }
+
+/* Guías de alineación del diagrama de relaciones: no afectan a la impresión. */
+.af-flow-layout-options{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:4px 5px;border:1px solid #d7d7cd;border-radius:9px;background:#fff}
+.af-flow-tool-button{font:600 10px/1.2 Roboto,Arial,sans-serif;border:1px solid #a9a99f;border-radius:6px;padding:8px 10px;background:#30312b;color:white;white-space:nowrap}
+.af-flow-tool-button:hover{background:#52534a}
+.af-flow-checkbox{font:500 10px/1.2 Roboto,Arial,sans-serif;color:#4d4d47;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;padding:4px}
+.af-flow-checkbox input{accent-color:#45473e}
+.af-flow-grid-control{display:inline-flex;gap:5px;align-items:center;white-space:nowrap;font:500 10px/1.2 Roboto,Arial,sans-serif;color:#4d4d47}
+.af-flow-grid-control select{font-size:11px;border:1px solid #d6d6ca;border-radius:5px;padding:5px;background:#fff;color:#292925}
+.af-flow-grid{opacity:.23}
+@media(max-width:900px){.af-flow-layout-options{order:10;width:100%}}
