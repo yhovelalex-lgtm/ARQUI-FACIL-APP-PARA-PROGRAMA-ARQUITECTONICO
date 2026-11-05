@@ -3,6 +3,7 @@ import ProjectSaveControls from './ProjectSaveControls.jsx';
 import { PROJECT_FIELDS, loadProjectFromBrowser, saveProjectToBrowser, makeProjectEnvelope, parseProjectFile } from './projectPersistence.js';
 import { MatrixDiamond, TopologyArtwork, FlowArtwork, LegendOverlay, GraphicStyleControls, relationKey } from './Visuals.jsx';
 import PrintStudioView from './PrintStudio.jsx';
+import { layoutFlowFromBubbles, alignFlowNode } from './flowLayout.js';
 import './visuals.css';
 import { Plus, Trash2, Grid, Network, ListPlus, Play, BrainCircuit, Sparkles, Loader2, Settings2, Square, LayoutTemplate, Printer, FileSpreadsheet, ZoomIn, Palette, ImagePlus, Shuffle, MoveRight } from 'lucide-react';
 
@@ -130,6 +131,9 @@ export default function App() {
   const [matrixTriangular,setMatrixTriangular]=useState(() => savedValue('matrixTriangular',true)),[topologyNodes,setTopologyNodes]=useState(() => savedValue('topologyNodes',[]));
   const [matrixDisplayMode,setMatrixDisplayMode]=useState(() => savedValue('matrixDisplayMode','both'));
   const [showGooey,setShowGooey]=useState(() => savedValue('showGooey',true)),[gooeyStrength,setGooeyStrength]=useState(() => savedValue('gooeyStrength',1.8)),[showFlows,setShowFlows]=useState(() => savedValue('showFlows',false));
+  const [flowGuides,setFlowGuides]=useState(() => savedValue('flowGuides',true));
+  const [flowSnap,setFlowSnap]=useState(() => savedValue('flowSnap',true));
+  const [flowGridSize,setFlowGridSize]=useState(() => savedValue('flowGridSize',40));
   const [legendPositions,setLegendPositions]=useState(() => savedValue('legendPositions',{matrix:{x:72,y:3},topology:{x:73,y:5},flowdiagram:{x:73,y:5}}));
   const [printSelectedViews,setPrintSelectedViews]=useState(() => savedValue('printSelectedViews',{program:false,matrix:true,flowdiagram:true,topology:true,floorplan:false}));
   const [printPageFormat,setPrintPageFormat]=useState(() => savedValue('printPageFormat',{w:420,h:297}));
@@ -155,7 +159,7 @@ export default function App() {
   const projectSnapshot={
     projectName,activeTab,spaces,matrix,floorPlanProposals,colorMode,colorSeed,
     styleOverrides,matrixTriangular,topologyNodes,matrixDisplayMode,showGooey,
-    gooeyStrength,showFlows,legendPositions,printSelectedViews,printPageFormat,
+    gooeyStrength,showFlows,flowGuides,flowSnap,flowGridSize,legendPositions,printSelectedViews,printPageFormat,
     printDpi,printLegendPlacement,selectedPaletteId,customPalette,extractedColors,customBgMode,
     showAreaText,topologyTextPos,topologyTextSize,typography
   };
@@ -184,7 +188,7 @@ export default function App() {
     return ()=>clearTimeout(timer);
   },[projectName,activeTab,spaces,matrix,floorPlanProposals,colorMode,colorSeed,
     styleOverrides,matrixTriangular,topologyNodes,matrixDisplayMode,showGooey,
-    gooeyStrength,showFlows,legendPositions,printSelectedViews,printPageFormat,
+    gooeyStrength,showFlows,flowGuides,flowSnap,flowGridSize,legendPositions,printSelectedViews,printPageFormat,
     printDpi,printLegendPlacement,selectedPaletteId,customPalette,extractedColors,customBgMode,
     showAreaText,topologyTextPos,topologyTextSize,typography,persistNow]);
 
@@ -218,7 +222,7 @@ export default function App() {
         floorPlanProposals:setFloorPlanProposals,colorMode:setColorMode,colorSeed:setColorSeed,
         styleOverrides:setStyleOverrides,matrixTriangular:setMatrixTriangular,topologyNodes:setTopologyNodes,
         matrixDisplayMode:setMatrixDisplayMode,showGooey:setShowGooey,gooeyStrength:setGooeyStrength,
-        showFlows:setShowFlows,legendPositions:setLegendPositions,
+        showFlows:setShowFlows,flowGuides:setFlowGuides,flowSnap:setFlowSnap,flowGridSize:setFlowGridSize,legendPositions:setLegendPositions,
         printLegendPlacement:setPrintLegendPlacement,
         printSelectedViews:setPrintSelectedViews,printPageFormat:setPrintPageFormat,printDpi:setPrintDpi,
         selectedPaletteId:setSelectedPaletteId,customPalette:setCustomPalette,extractedColors:setExtractedColors,
@@ -354,7 +358,7 @@ export default function App() {
         {activeTab === 'spaces' && <SpacesView spaces={spaces} addSpace={addSpace} removeSpace={removeSpace} handleSpaceUpdate={handleSpaceUpdate} colorMode={colorMode} setColorMode={setColorMode} getSpaceColor={getSpaceColor} currentPalette={currentPalette} onExcelImport={handleExcelImport} importPreviewData={importPreviewData} importHeaders={importHeaders} importMapping={importMapping} setImportMapping={setImportMapping} confirmImport={confirmImport} cancelImport={() => setImportPreviewData(null)} importSheetNames={importSheetNames} selectedSheet={selectedSheet} onSheetChange={(e) => processExcelSheet(importWorkbook, e.target.value)} setSpaces={setSpaces} isGeneratingAI={isGeneratingAI} setIsGeneratingAI={setIsGeneratingAI} />}
         {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix}  isTriangular={matrixTriangular} setIsTriangular={setMatrixTriangular} colors={colors} typography={typography} legendPosition={legendPositions.matrix} onLegendPositionChange={changeLegend('matrix')} controls={graphicControls} displayMode={matrixDisplayMode} setDisplayMode={setMatrixDisplayMode} />}
         {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setTopologyNodes} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize}  savedNodes={topologyNodes} showGooey={showGooey} setShowGooey={setShowGooey} gooeyStrength={gooeyStrength} setGooeyStrength={setGooeyStrength} colors={colors} typography={typography} legendPosition={legendPositions.topology} onLegendPositionChange={changeLegend('topology')} controls={graphicControls} />}
-        {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} showAreaText={showAreaText} setShowAreaText={setShowAreaText}  showFlows={showFlows} setShowFlows={setShowFlows} colors={colors} typography={typography} setStyleOverrides={setStyleOverrides} legendPosition={legendPositions.flowdiagram} onLegendPositionChange={changeLegend('flowdiagram')} controls={graphicControls} />}
+        {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} onApplyLayout={setSpaces} topologyNodes={topologyNodes} flowGuides={flowGuides} setFlowGuides={setFlowGuides} flowSnap={flowSnap} setFlowSnap={setFlowSnap} flowGridSize={flowGridSize} setFlowGridSize={setFlowGridSize} showAreaText={showAreaText} setShowAreaText={setShowAreaText}  showFlows={showFlows} setShowFlows={setShowFlows} colors={colors} typography={typography} setStyleOverrides={setStyleOverrides} legendPosition={legendPositions.flowdiagram} onLegendPositionChange={changeLegend('flowdiagram')} controls={graphicControls} />}
         {activeTab === 'floorplan' && <FloorPlanView spaces={spaces} matrix={matrix} proposals={floorPlanProposals} setProposals={setFloorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} />}
         {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize}  matrixTriangular={matrixTriangular} topologyNodes={topologyNodes} showGooey={showGooey} gooeyStrength={gooeyStrength} showFlows={showFlows} colors={colors} typography={typography} legendPositions={legendPositions} graphicControls={graphicControls} selectedViews={printSelectedViews} setSelectedViews={setPrintSelectedViews} pageFormat={printPageFormat} setPageFormat={setPrintPageFormat} printDpi={printDpi} setPrintDpi={setPrintDpi} matrixDisplayMode={matrixDisplayMode} printLegendPlacement={printLegendPlacement} setPrintLegendPlacement={setPrintLegendPlacement} />}
         </div>
@@ -660,14 +664,14 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
 // ==========================================
 // VISTA 4: DIAGRAMA DE RELACIONES
 // ==========================================
-function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpdatePosition, onUpdateSize, showAreaText, setShowAreaText, showFlows, setShowFlows, colors, setStyleOverrides, legendPosition, onLegendPositionChange, controls, typography }) {
+function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpdatePosition, onUpdateSize, onApplyLayout, topologyNodes, flowGuides, setFlowGuides, flowSnap, setFlowSnap, flowGridSize, setFlowGridSize, showAreaText, setShowAreaText, showFlows, setShowFlows, colors, setStyleOverrides, legendPosition, onLegendPositionChange, controls, typography }) {
   const containerRef = useRef(null);
   const onColorChange=(field,value)=>setStyleOverrides(prev=>({...prev,[field]:value}));
   const [draggingId, setDraggingId] = useState(null); const [resizingId, setResizingId] = useState(null); const mouseOffset = useRef({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1); const [cameraOffset, setCameraOffset] = useState({ x: 0, y: 0 }); const isPanning = useRef(false); const panStart = useRef({ x: 0, y: 0 });
 
+  const [alignment,setAlignment]=useState({vertical:null,horizontal:null});
   useCanvasWheelZoom(containerRef, setZoom, spaces.length > 0);
-
 
   const drawOrthogonalLine = (n1, n2) => { const cx1 = n1.x + n1.w / 2, cy1 = n1.y + n1.h / 2, cx2 = n2.x + n2.w / 2, cy2 = n2.y + n2.h / 2; if (Math.abs(cx1 - cx2) > Math.abs(cy1 - cy2)) return `M ${cx1} ${cy1} H ${(cx1 + cx2) / 2} V ${cy2} H ${cx2}`; else return `M ${cx1} ${cy1} V ${(cy1 + cy2) / 2} H ${cx2} V ${cy2}`; };
   const drawOrganicCurve = (n1, n2) => { const cx1 = n1.x + n1.w / 2, cy1 = n1.y + n1.h / 2, cx2 = n2.x + n2.w / 2, cy2 = n2.y + n2.h / 2; return `M ${cx1} ${cy1} C ${cx1 + (cx2-cx1)/2} ${cy1}, ${cx1 + (cx2-cx1)/2} ${cy2}, ${cx2} ${cy2}`; };
@@ -681,10 +685,21 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
       const dx = e.clientX - panStart.current.x, dy = e.clientY - panStart.current.y;
       panStart.current = { x: e.clientX, y: e.clientY };
       setCameraOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
-    } else if (draggingId) { const coords = getMouseCoord(e); onUpdatePosition(draggingId, coords.x - mouseOffset.current.x, coords.y - mouseOffset.current.y); }
+    } else if (draggingId) {
+      const coords=getMouseCoord(e),node=spaces.find(s=>s.id===draggingId);
+      if(!node)return;
+      const point=alignFlowNode(node,spaces.filter(s=>s.id!==draggingId),coords.x-mouseOffset.current.x,coords.y-mouseOffset.current.y,{grid:flowGridSize,snap:flowSnap,guides:flowGuides,tolerance:12/zoom});
+      onUpdatePosition(draggingId,point.x,point.y);
+      setAlignment({vertical:point.vertical,horizontal:point.horizontal});
+    }
     else if (resizingId) { const coords = getMouseCoord(e); onUpdateSize(resizingId, coords.x - mouseOffset.current.x, coords.y - mouseOffset.current.y); }
   };
-  const handleContainerPointerUp = (e) => { if (isPanning.current) { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); isPanning.current = false; } setDraggingId(null); setResizingId(null); };
+  const handleContainerPointerUp = (e) => { if (isPanning.current) { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); isPanning.current = false; } setDraggingId(null); setResizingId(null); setAlignment({vertical:null,horizontal:null}); };
+  const copyBubbleLayout=()=>{
+    if(!window.confirm('Se organizará el diagrama de relaciones según las posiciones de las burbujas. Se reemplazarán las posiciones actuales. ¿Continuar?'))return;
+    onApplyLayout(layoutFlowFromBubbles(spaces,topologyNodes,flowGridSize));
+    setCameraOffset({x:0,y:0});setZoom(1);
+  };
 
   if (spaces.length === 0) return <div className="p-8 text-center text-[#73736c]">Defina espacios primero.</div>;
   return (
@@ -699,13 +714,22 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
           <div className="w-px h-6 bg-[#ddddd5]"></div>
           <button onClick={() => setShowAreaText(!showAreaText)} className={`px-3 py-1.5 rounded text-[9px] font-bold uppercase transition-all border ${showAreaText ? 'bg-[#292925]/10 text-[#292925] border-[#292925]/30' : 'bg-[#f6f6f2] text-[#73736c] border-[#ddddd5] hover:text-[#20201c]'}`}>Área: {showAreaText ? 'ON' : 'OFF'}</button>
           <div className="w-px h-6 bg-[#ddddd5]"></div>
-          <button onClick={() => setShowFlows(!showFlows)} className={`px-4 py-1.5 rounded-lg font-bold flex items-center gap-2 text-xs transition-all ${showFlows ? 'bg-[#242420] text-[#f6f6f2]' : 'text-[#73736c] border border-[#ddddd5] hover:text-[#20201c]'}`}><MoveRight size={14} /> RECORRIDOS: {showFlows ? 'ON' : 'OFF'}</button>
+          <div className="af-flow-layout-options" role="group" aria-label="Organización ortogonal">
+             <button type="button" aria-label="Organizar según burbujas" className="af-flow-tool-button" onClick={copyBubbleLayout}>Organizar desde burbujas</button>
+             <label className="af-flow-checkbox"><input type="checkbox" aria-label="Guías ortogonales" checked={flowGuides} onChange={e=>setFlowGuides(e.target.checked)}/> Guías</label>
+             <label className="af-flow-checkbox"><input type="checkbox" aria-label="Ajustar a cuadrícula" checked={flowSnap} onChange={e=>setFlowSnap(e.target.checked)}/> Ajustar</label>
+             <label className="af-flow-grid-control">Paso <select aria-label="Paso de cuadrícula" value={flowGridSize} onChange={e=>setFlowGridSize(Number(e.target.value))}><option value={20}>20</option><option value={40}>40</option><option value={80}>80</option></select></label>
+           </div><button onClick={() => setShowFlows(!showFlows)} className={`px-4 py-1.5 rounded-lg font-bold flex items-center gap-2 text-xs transition-all ${showFlows ? 'bg-[#242420] text-[#f6f6f2]' : 'text-[#73736c] border border-[#ddddd5] hover:text-[#20201c]'}`}><MoveRight size={14} /> RECORRIDOS: {showFlows ? 'ON' : 'OFF'}</button>
         </div>
       </div>
       <div className={`flex-1 overflow-hidden relative touch-none ${isPanning.current ? 'cursor-grabbing' : 'cursor-crosshair'}`} ref={containerRef} onPointerDown={handleContainerPointerDown} onPointerMove={handleContainerPointerMove} onPointerUp={handleContainerPointerUp} onPointerCancel={handleContainerPointerUp} onMouseDown={e=>{if(e.button===1)e.preventDefault();}} onAuxClick={e=>{if(e.button===1)e.preventDefault();}}>
-         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `${40*zoom}px ${40*zoom}px`, backgroundPosition: `${cameraOffset.x}px ${cameraOffset.y}px` }}></div>
+         {flowGuides&&<div className="absolute inset-0 pointer-events-none af-flow-grid" data-testid="flow-grid" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `${flowGridSize*zoom}px ${flowGridSize*zoom}px`, backgroundPosition: `${cameraOffset.x}px ${cameraOffset.y}px` }}></div>}
          <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
-           <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showAreaText={showAreaText} showFlows={showFlows} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} onNodePointerDown={handlePointerDownNode} onResizePointerDown={handlePointerDownResize} hoveredId={draggingId||resizingId}/>
+           {flowGuides && (alignment.vertical!==null || alignment.horizontal!==null) && <svg data-testid="flow-alignment-guides" className="absolute inset-0 overflow-visible pointer-events-none" width="4000" height="4000" viewBox="0 0 4000 4000" aria-label="Guías de alineación">
+              {alignment.vertical!==null&&<line x1={alignment.vertical} x2={alignment.vertical} y1="0" y2="4000" stroke={colors.direct} strokeWidth={1.2} strokeDasharray="8 5" opacity=".65"/>}
+              {alignment.horizontal!==null&&<line x1="0" x2="4000" y1={alignment.horizontal} y2={alignment.horizontal} stroke={colors.direct} strokeWidth={1.2} strokeDasharray="8 5" opacity=".65"/>}
+            </svg>}
+            <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showAreaText={showAreaText} showFlows={showFlows} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} onNodePointerDown={handlePointerDownNode} onResizePointerDown={handlePointerDownResize} hoveredId={draggingId||resizingId}/>
         </div>
            <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'2',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect}]}/>
        </div>
