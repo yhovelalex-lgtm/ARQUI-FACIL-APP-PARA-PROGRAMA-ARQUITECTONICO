@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - feature/graficos-matriz-laminas-v2
+      - release/arqui-facil-v2-nov-2026
+      - main
   workflow_dispatch:
 permissions:
   contents: read
