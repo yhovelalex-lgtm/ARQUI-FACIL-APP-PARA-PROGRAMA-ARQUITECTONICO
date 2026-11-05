@@ -87,6 +87,25 @@ try{
  assert.ok(await page.locator('.af-legend-handle').count()>0,'La leyenda debe existir');
  await module('Relaciones');
  assert.ok(await page.locator('.af-legend-handle').count()>0,'La leyenda de relaciones debe existir');
+ assert.equal(await page.getByRole('checkbox',{name:'Guías ortogonales'}).isChecked(),true,'Guías visibles por defecto');
+ assert.equal(await page.getByRole('checkbox',{name:'Ajustar a cuadrícula'}).isChecked(),true,'Imán a cuadrícula activo');
+ assert.equal(await page.getByRole('combobox',{name:'Paso de cuadrícula'}).inputValue(),'40');
+ assert.ok(await page.locator('[data-testid="flow-grid"]').count()>0,'Cuadrícula presente');
+ page.once('dialog',dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Organizar según burbujas'}).click();
+ assert.equal(await page.locator('g[transform^="translate("]').count(),11,'Se conserva el número de cajas');
+ const flowPositions=await page.locator('g[transform^="translate("]').evaluateAll(elements=>elements.map(el=>el.getAttribute('transform')));
+ assert.ok(flowPositions.every(value=>/^translate\\(\\d+(?:\\.\\d+)?,\\d+(?:\\.\\d+)?\\)$/.test(value)),'Transformaciones válidas');
+ await page.getByRole('checkbox',{name:'Guías ortogonales'}).uncheck();
+ assert.equal(await page.locator('[data-testid="flow-grid"]').count(),0,'Se puede ocultar la cuadrícula');
+ await page.getByRole('checkbox',{name:'Guías ortogonales'}).check();
+ await page.getByRole('combobox',{name:'Paso de cuadrícula'}).selectOption('20');
+ await page.getByRole('textbox',{name:'Nombre del proyecto'}).fill('Proyecto diagramas con guías');
+ await page.locator('.af-project-status-saved').waitFor({timeout:8000});
+ await page.reload();
+ assert.equal(await page.getByRole('checkbox',{name:'Guías ortogonales'}).isChecked(),true,'Guías recuperadas tras recargar');
+ assert.equal(await page.getByRole('combobox',{name:'Paso de cuadrícula'}).inputValue(),'20','Paso recuperado tras recargar');
+
  await module('Láminas');
  assert.equal(await page.locator('.af-sheet-page').count(),3,'Se previsualizan 3 hojas seleccionadas');
  assert.ok(await page.locator('.af-sheet-body-matrix .af-matrix-svg').count()>0,'La matriz de impresión comparte su renderizador');
