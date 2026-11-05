@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { chromium } from 'playwright';
+const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+const page=await browser.newPage({viewport:{width:1600,height:950},acceptDownloads:true});
+const errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+async function module(name){await page.getByRole('navigation').getByRole('button',{name:new RegExp(name)}).click();await page.waitForTimeout(150);}
+const url=process.env.BASE_URL||'http://127.0.0.1:5173/';
+try{
+ await page.goto(url);
+ await page.getByRole('textbox',{name:'Nombre del proyecto'}).fill('Proyecto de prueba persistente');
+ await module('Matriz funcional');
+ assert.equal(await page.getByRole('combobox',{name:'Paleta de colores'}).inputValue(),'minimalist','Paleta minimalista por defecto');
+ assert.equal(await page.locator('.af-matrix-board').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(251, 251, 248)','Fondo inicial claro en matriz');
+ const matrix=page.getByRole('group',{name:'Matriz triangular romboidal de relaciones'});
+ await matrix.waitFor();
+ assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),55,'Triangular debe tener 55 pares');
+ assert.equal(await page.locator('.af-matrix-row-pentagon').count(),11,'Cada recinto tiene una pieza pentagonal');
+ assert.equal(await page.locator('.af-matrix-sum circle').count(),11,'Sumatoria integrada en cada fila');
+ const firstPentagon=await page.locator('.af-matrix-row-pentagon').first().getAttribute('points');
+ const points=firstPentagon.trim().split(/\s+/);
+ assert.equal(points.length,5,'Cada terminación conserva cinco vértices');
+ assert.ok((await page.locator('.af-matrix-row-pentagon').first().getAttribute('fill')).startsWith('#'),'Colores de recintos conservados');
+ const firstCount=await page.locator('.af-matrix-sum text').first().textContent();
+ assert.equal(firstCount,'6','Se conserva el número de relaciones iniciales del Hall');
+ assert.equal(await page.locator('.af-matrix-row-pentagon').first().getAttribute('fill'),'#22221e14','Las filas siguen el estilo monocromático');
+ assert.equal(await page.locator('.af-matrix-relation-dot').count(),10,'Se mantienen todos los vínculos no nulos del ejemplo');
+ assert.equal(await page.getByRole('combobox',{name:'Visualización de relaciones'}).inputValue(),'both','Por defecto gráfico y número');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-number').count(),10,'Modo combinado muestra valores numéricos');
+ const darkNumber=page.locator('.af-matrix-relation-number-2').first();
+ const lightNumber=page.locator('.af-matrix-relation-number-1').first();
+ assert.equal(await darkNumber.getAttribute('fill'),'#ffffff','Contraste claro sobre esfera oscura');
+ assert.equal(await lightNumber.getAttribute('fill'),'#171a19','Contraste oscuro sobre esfera clara');
+ await page.getByRole('combobox',{name:'Visualización de relaciones'}).selectOption('graphic');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-number').count(),0,'Solo gráfico oculta números');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-dot').count(),10,'Solo gráfico mantiene esferas');
+ await page.getByRole('combobox',{name:'Visualización de relaciones'}).selectOption('number');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-dot').count(),0,'Solo número oculta esferas');
+ assert.equal(await page.locator('.af-matrix-triangular .af-matrix-relation-number').count(),10,'Solo número conserva números');
+ await page.getByRole('combobox',{name:'Visualización de relaciones'}).selectOption('both');
+ assert.equal(await page.locator('.af-matrix-relation-2').first().getAttribute('fill'),'#3d4541','Relación directa oscura');
+ assert.equal(await page.locator('.af-matrix-relation-1').first().getAttribute('fill'),'#b9c4bc','Relación indirecta clara');
+
+
+ const first=page.getByRole('button',{name:'Relación entre Hall y Reception: 2. Clic para cambiar.'});
+ await first.click();
+ await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).waitFor({timeout:6000});
+ assert.equal(await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).count(),1,'Edición debe funcionar');
+ // Verificar persistencia real del estado de la matriz, la vista y el nombre.
+ await page.locator('.af-project-status-saved').waitFor({timeout:8000});
+ const storageBeforeReload=await page.evaluate(()=>localStorage.getItem('arqui-facil:workspace:v1'));
+ assert.ok(storageBeforeReload?.includes('Proyecto de prueba persistente'),'Guardado local contiene el proyecto');
+ await page.reload();
+ assert.equal(await page.getByRole('textbox',{name:'Nombre del proyecto'}).inputValue(),'Proyecto de prueba persistente');
+ assert.equal(await page.getByRole('combobox',{name:'Visualización de relaciones'}).inputValue(),'both');
+ assert.equal(await page.getByRole('button',{name:'Relación entre Hall y Reception: 0. Clic para cambiar.'}).count(),1,'La relación persiste tras actualizar');
+ // Se descarga un JSON y se vuelve a importar después de cambiar el nombre.
+ const [backup]=await Promise.all([page.waitForEvent('download',{timeout:10000}),page.getByRole('button',{name:'Descargar copia'}).click()]);
+ assert.ok(backup.suggestedFilename().endsWith('.arqui-facil.json'),'Formato de respaldo reconocido');
+ const backupBytes=await readFile(await backup.path());
+ await page.getByRole('textbox',{name:'Nombre del proyecto'}).fill('Nombre temporal');
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('input[aria-label="Seleccionar copia JSON del proyecto"]').setInputFiles({name:'copia.arqui-facil.json',mimeType:'application/json',buffer:backupBytes});
+ await page.waitForFunction(()=>document.querySelector('input[aria-label="Nombre del proyecto"]')?.value==='Proyecto de prueba persistente');
+ assert.equal(await page.getByRole('textbox',{name:'Nombre del proyecto'}).inputValue(),'Proyecto de prueba persistente','El archivo importado recupera el proyecto');
+ await page.getByRole('button',{name:'FORMA: TRIANGULAR'}).click();
+ assert.equal(await page.getByRole('button',{name:/^Relación entre/}).count(),110,'Cuadrada mantiene 110 celdas');
+ await page.getByRole('button',{name:'FORMA: CUADRADA'}).click();
+ await page.getByRole('combobox',{name:'Distribución de colores'}).selectOption('auto');
+ await page.getByRole('button',{name:'↻ Colores'}).click();
+ await page.getByRole('button',{name:'Avanzado'}).click();
+ assert.equal(await page.getByRole('combobox',{name:'Tipo de letra'}).inputValue(),'Roboto','Roboto predeterminada');
+ await page.getByRole('spinbutton',{name:'Tamaño texto áreas'}).fill('16');
+ await page.getByRole('spinbutton',{name:'Tamaño texto recintos'}).fill('14');
+ const nameSize=await page.locator('.af-matrix-svg text').filter({hasText:'1. Hall'}).first().getAttribute('font-size');
+ assert.equal(nameSize,'14','Tamaño de nombres aplicado a la matriz');
+ await page.getByRole('button',{name:'Colores',exact:true}).click();
+ assert.ok(await page.getByRole('group',{name:'Colores guardados de la paleta'}).getByRole('button').count()>=4,'Muestras disponibles');
+ await page.getByRole('button',{name:/Aplicar color/}).first().click();
+ await page.getByRole('button',{name:'Paleta de imagen'}).click();
+ assert.ok(await page.getByRole('button',{name:'Cargar imagen y extraer colores'}).count()===1,'Carga de imagen disponible');
+
+ await page.getByRole('textbox',{name:'Texto general'}).count().catch(()=>{});
+ await module('Topología');
+ assert.equal(await page.locator('.af-artwork-svg').count(),0,'El lienzo interactivo debe mantener dimensiones propias');
+ assert.ok(await page.locator('.af-legend-handle').count()>0,'La leyenda debe existir');
+ await module('Relaciones');
+ assert.ok(await page.locator('.af-legend-handle').count()>0,'La leyenda de relaciones debe existir');
+ assert.equal(await page.getByRole('checkbox',{name:'Guías ortogonales'}).isChecked(),true,'Guías visibles por defecto');
+ assert.equal(await page.getByRole('checkbox',{name:'Ajustar a cuadrícula'}).isChecked(),true,'Imán a cuadrícula activo');
+ assert.equal(await page.getByRole('combobox',{name:'Paso de cuadrícula'}).inputValue(),'40');
+ assert.ok(await page.locator('[data-testid="flow-grid"]').count()>0,'Cuadrícula presente');
+ page.once('dialog',dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Organizar según burbujas'}).click();
+ assert.equal(await page.locator('g[transform^="translate("]').count(),11,'Se conserva el número de cajas');
+ const flowPositions=await page.locator('g[transform^="translate("]').evaluateAll(elements=>elements.map(el=>el.getAttribute('transform')));
+ assert.ok(flowPositions.every(value=>/^translate\(\d+(?:\.\d+)?,\d+(?:\.\d+)?\)$/.test(value)),'Transformaciones válidas');
+ await page.getByRole('checkbox',{name:'Guías ortogonales'}).uncheck();
+ assert.equal(await page.locator('[data-testid="flow-grid"]').count(),0,'Se puede ocultar la cuadrícula');
+ await page.getByRole('checkbox',{name:'Guías ortogonales'}).check();
+ await page.getByRole('combobox',{name:'Paso de cuadrícula'}).selectOption('20');
+ await page.getByRole('textbox',{name:'Nombre del proyecto'}).fill('Proyecto diagramas con guías');
+ await page.locator('.af-project-status-saved').waitFor({timeout:8000});
+ await page.reload();
+ assert.equal(await page.getByRole('checkbox',{name:'Guías ortogonales'}).isChecked(),true,'Guías recuperadas tras recargar');
+ assert.equal(await page.getByRole('combobox',{name:'Paso de cuadrícula'}).inputValue(),'20','Paso recuperado tras recargar');
+
+ await module('Láminas');
+ assert.equal(await page.locator('.af-sheet-page').count(),3,'Se previsualizan 3 hojas seleccionadas');
+ assert.ok(await page.locator('.af-sheet-body-matrix .af-matrix-svg').count()>0,'La matriz de impresión comparte su renderizador');
+ assert.equal(await page.locator('.af-sheet-body-topology svg').count(),1,'Topología reproducida');
+ assert.equal(await page.locator('.af-sheet-body-flowdiagram svg').count(),1,'Relaciones reproducidas');
+ // En impresión la retícula se encuadra sin las márgenes del lienzo interactivo.
+ const printedMatrix=page.locator('.af-sheet-body-matrix .af-matrix-svg');
+ const bounds=(await printedMatrix.getAttribute('viewBox')).split(/\s+/).map(Number);
+ assert.ok(bounds[2]<700,'La matriz de once recintos no tiene márgenes laterales sobrantes');
+ assert.ok(await printedMatrix.evaluate(el=>el.getBoundingClientRect().width)>100,'Gráfico visible en la lámina');
+ const printLegend=page.locator('.af-sheet-body-matrix .af-sheet-legend-region');
+ const graphicRect=await page.locator('.af-sheet-body-matrix .af-sheet-graphic').boundingBox();
+ const legendRect=await printLegend.boundingBox();
+ assert.ok(graphicRect&&legendRect&&legendRect.y>=graphicRect.y+graphicRect.height-2,'Leyenda inferior sin superposición');
+ await page.getByRole('combobox',{name:'Ubicación de leyenda para impresión'}).selectOption('right');
+ assert.ok(await page.locator('.af-sheet-body-matrix.af-sheet-layout-right').count()===1,'Opción lateral aplicada');
+ await page.getByRole('combobox',{name:'Ubicación de leyenda para impresión'}).selectOption('hidden');
+ assert.ok(await page.locator('.af-sheet-body-matrix .af-sheet-legend-region').count()===0,'Leyenda ocultable');
+ await page.getByRole('combobox',{name:'Ubicación de leyenda para impresión'}).selectOption('bottom');
+
+ const [download]=await Promise.all([page.waitForEvent('download',{timeout:45000}),page.getByRole('button',{name:'Exportar PDF'}).click()]);
+ assert.ok(download.suggestedFilename().endsWith('.pdf'),'PDF descargado');
+ assert.deepEqual(errors,[],'No debe haber errores JavaScript');
+ console.log('Pruebas de navegador: OK (matriz, edición, paletas, leyendas, láminas, PDF)');
+}catch(err){console.error('Pruebas fallidas',err,errors);throw err}finally{await browser.close()}
+

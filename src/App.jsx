@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { RELATION, relationKey, nextRelation, relationDasharray, relationValue, relationTotal, matrixLayout, matrixCell, matrixOutline, matrixRowShape } from './matrix-geometry.js';
+import ProjectSaveControls from './ProjectSaveControls.jsx';
+import { PROJECT_FIELDS, loadProjectFromBrowser, saveProjectToBrowser, makeProjectEnvelope, parseProjectFile } from './projectPersistence.js';
+import { MatrixDiamond, TopologyArtwork, FlowArtwork, LegendOverlay, GraphicStyleControls, relationKey } from './Visuals.jsx';
+import PrintStudioView from './PrintStudio.jsx';
+import { layoutFlowFromBubbles, alignFlowNode } from './flowLayout.js';
+import './visuals.css';
 import { Plus, Trash2, Grid, Network, ListPlus, Play, BrainCircuit, Sparkles, Loader2, Settings2, Square, LayoutTemplate, Printer, FileSpreadsheet, ZoomIn, Palette, ImagePlus, Shuffle, MoveRight } from 'lucide-react';
 
 const ZONES = { social: { id: 'social', label: 'Pública / Principal' }, private: { id: 'private', label: 'Privada / Anexos' }, service: { id: 'service', label: 'Servicios' }, circulation: { id: 'circulation', label: 'Circulación' } };
@@ -47,7 +52,7 @@ const FloorPlanEngine = {
     for (let i = 0; i < layout.length; i++) {
       for (let j = i + 1; j < layout.length; j++) {
         const a = layout[i], b = layout[j]; const isAdjacent = FloorPlanEngine.shareWall(a, b); const weight = matrix[[a.id, b.id].sort().join('-')] || 0;
-        if (weight === 2) { if (isAdjacent) score += 150; else score -= 150; } else if (weight === 1) { if (isAdjacent) score += 40; } else if (weight === 0) { if (isAdjacent) score -= 15; }
+        if (weight === 3) { if (isAdjacent) score += 150; else score -= 150; } else if (weight === 1) { if (isAdjacent) score += 40; } else if (weight === 0) { if (isAdjacent) score -= 15; }
         if (isAdjacent && (a.zone === 'circulation' || b.zone === 'circulation')) { score += 60; }
       }
     }
@@ -85,9 +90,15 @@ const FloorPlanEngine = {
 // COMPONENTE PRINCIPAL (REACT UI)
 // ==========================================
 export default function App() {
-  const [activeTab, setActiveTab] = useState('spaces'); 
+  // Carga síncrona: los datos recuperados se aplican antes del primer render.
+  const [initialLoad] = useState(() => loadProjectFromBrowser());
+  const savedValue = (key, fallback) => initialLoad.data && Object.hasOwn(initialLoad.data,key) ? initialLoad.data[key] : fallback;
+  const [projectName,setProjectName] = useState(() => savedValue('projectName','Mi proyecto'));
+  const [saveStatus,setSaveStatus] = useState(initialLoad.error?'error':initialLoad.data?'saved':'pending');
+  const [savedAt,setSavedAt] = useState(initialLoad.savedAt);
+  const [activeTab, setActiveTab] = useState(() => savedValue('activeTab','spaces')); 
   
-  const [spaces, setSpaces] = useState([
+  const [spaces, setSpaces] = useState(() => savedValue('spaces',[
     { id: 'hall', name: 'Hall', area: 120, zone: 'circulation', subzone: 'Distribución', x: 280, y: 260, w: 140, h: 80, pinned: false },
     { id: 'recep', name: 'Reception', area: 100, zone: 'social', subzone: 'Atención', x: 440, y: 260, w: 120, h: 80, pinned: false },
     { id: 'biblio', name: 'Bibliothèque', area: 250, zone: 'social', subzone: 'Lectura', x: 60, y: 200, w: 180, h: 200, pinned: false },
@@ -99,22 +110,11 @@ export default function App() {
     { id: 'esc2', name: 'Escaliers', area: 30, zone: 'circulation', subzone: 'Vertical', x: 580, y: 220, w: 50, h: 60, pinned: false },
     { id: 'cafe', name: 'Café', area: 90, zone: 'social', subzone: 'Gastronomía', x: 400, y: 380, w: 120, h: 80, pinned: false },
     { id: 'scene', name: 'Scène en Direct', area: 350, zone: 'social', subzone: 'Espectáculo', x: 280, y: 520, w: 280, h: 160, pinned: false }
-  ]);
+  ]));
   
-  const [matrix, setMatrix] = useState({
-    [relationKey('hall', 'biblio')]: RELATION.DIRECT,
-    [relationKey('hall', 'recep')]: RELATION.DIRECT,
-    [relationKey('hall', 'esc1')]: RELATION.DIRECT,
-    [relationKey('recep', 'serv')]: RELATION.INDIRECT,
-    [relationKey('recep', 'cine')]: RELATION.DIRECT,
-    [relationKey('recep', 'cafe')]: RELATION.DIRECT,
-    [relationKey('recep', 'exhib')]: RELATION.DIRECT,
-    [relationKey('exhib', 'audi')]: RELATION.DIRECT,
-    [relationKey('exhib', 'esc2')]: RELATION.DIRECT,
-    [relationKey('cafe', 'scene')]: RELATION.DIRECT,
-  });
+  const [matrix,setMatrix]=useState(()=>savedValue('matrix',Object.fromEntries([['hall','biblio',3],['hall','recep',3],['hall','esc1',3],['recep','serv',1],['recep','cine',3],['recep','cafe',3],['recep','exhib',3],['exhib','audi',3],['exhib','esc2',3],['cafe','scene',3]].map(([a,b,v])=>[relationKey(a,b),v]))));
 
-  const [floorPlanProposals, setFloorPlanProposals] = useState([]);
+  const [floorPlanProposals, setFloorPlanProposals] = useState(() => savedValue('floorPlanProposals',[]));
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
   // Estados de Excel
@@ -126,33 +126,128 @@ export default function App() {
   const [selectedSheet, setSelectedSheet] = useState('');
 
   // ESTADOS DE COLOR Y ESTILOS
-  const [colorMode, setColorMode] = useState('macro');
-  const [matrixShape, setMatrixShape] = useState('triangular');
-  const [matrixDisplayMode, setMatrixDisplayMode] = useState('mixto');
-  const [matrixLegendPos, setMatrixLegendPos] = useState({ x: 20, y: 16 });
-  const [selectedPaletteId, setSelectedPaletteId] = useState('minimalist'); 
-  const [customPalette, setCustomPalette] = useState(null);
-  const [extractedColors, setExtractedColors] = useState([]);
-  const [customBgMode, setCustomBgMode] = useState('light');
+  const [colorMode, setColorMode] = useState(() => savedValue('colorMode','macro'));
+  const [colorSeed,setColorSeed]=useState(() => savedValue('colorSeed',0)),[styleOverrides,setStyleOverrides]=useState(() => savedValue('styleOverrides',{}));
+  const [matrixTriangular,setMatrixTriangular]=useState(() => savedValue('matrixTriangular',true)),[topologyNodes,setTopologyNodes]=useState(() => savedValue('topologyNodes',[]));
+  const [matrixDisplayMode,setMatrixDisplayMode]=useState(() => savedValue('matrixDisplayMode','both'));
+  const [showGooey,setShowGooey]=useState(() => savedValue('showGooey',true)),[gooeyStrength,setGooeyStrength]=useState(() => savedValue('gooeyStrength',1.8)),[showFlows,setShowFlows]=useState(() => savedValue('showFlows',false));
+  const [flowGuides,setFlowGuides]=useState(() => savedValue('flowGuides',true));
+  const [flowSnap,setFlowSnap]=useState(() => savedValue('flowSnap',true));
+  const [flowGridSize,setFlowGridSize]=useState(() => savedValue('flowGridSize',40));
+  const [legendPositions,setLegendPositions]=useState(() => savedValue('legendPositions',{matrix:{x:72,y:3},topology:{x:73,y:5},flowdiagram:{x:73,y:5}}));
+  const [printSelectedViews,setPrintSelectedViews]=useState(() => savedValue('printSelectedViews',{program:false,matrix:true,flowdiagram:true,topology:true,floorplan:false}));
+  const [printPageFormat,setPrintPageFormat]=useState(() => savedValue('printPageFormat',{w:420,h:297}));
+  const [printDpi,setPrintDpi]=useState(() => savedValue('printDpi',200));
+  const [printLegendPlacement,setPrintLegendPlacement]=useState(() => savedValue('printLegendPlacement','bottom'));
+
+  const [selectedPaletteId, setSelectedPaletteId] = useState(() => savedValue('selectedPaletteId','minimalist')); 
+  const [customPalette, setCustomPalette] = useState(() => savedValue('customPalette',null));
+  const [extractedColors, setExtractedColors] = useState(() => savedValue('extractedColors',[]));
+  const [customBgMode, setCustomBgMode] = useState(() => savedValue('customBgMode','light'));
 
   // NUEVOS ESTADOS GLOBALES DE TEXTO Y ÁREA
-  const [showAreaText, setShowAreaText] = useState(true);
-  const [topologyTextPos, setTopologyTextPos] = useState('edge'); // 'edge' | 'center'
-  const [topologyTextSize, setTopologyTextSize] = useState(11);
+  const [showAreaText, setShowAreaText] = useState(() => savedValue('showAreaText',true));
+  const [topologyTextPos, setTopologyTextPos] = useState(() => savedValue('topologyTextPos','edge')); // 'edge' | 'center'
+  const [topologyTextSize, setTopologyTextSize] = useState(() => savedValue('topologyTextSize',11));
+  const [typography,setTypography]=useState(() => savedValue('typography',{fontFamily:'Roboto',labelSize:11,areaSize:10}));
 
   // IA States
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isGeneratingMatrix, setIsGeneratingMatrix] = useState(false);
 
-  const currentPalette = (selectedPaletteId === 'custom_image' && customPalette) ? customPalette : PRINT_PALETTES.find(p => p.id === selectedPaletteId) || PRINT_PALETTES[0];
+  // Contenido del proyecto (no incluye estados temporales de interfaz ni archivos Excel).
+  const projectSnapshot={
+    projectName,activeTab,spaces,matrix,floorPlanProposals,colorMode,colorSeed,
+    styleOverrides,matrixTriangular,topologyNodes,matrixDisplayMode,showGooey,
+    gooeyStrength,showFlows,flowGuides,flowSnap,flowGridSize,legendPositions,printSelectedViews,printPageFormat,
+    printDpi,printLegendPlacement,selectedPaletteId,customPalette,extractedColors,customBgMode,
+    showAreaText,topologyTextPos,topologyTextSize,typography
+  };
+  const latestSnapshot=useRef(projectSnapshot);
+  latestSnapshot.current=projectSnapshot;
+  const lastSaveError=useRef(initialLoad.error || null);
+
+  const persistNow=useCallback(()=>{
+    try{
+      const timestamp=saveProjectToBrowser(latestSnapshot.current);
+      setSavedAt(timestamp);setSaveStatus('saved');lastSaveError.current=null;
+      return true;
+    }catch(error){
+      lastSaveError.current=error.message;
+      setSaveStatus('error');
+      console.warn('[ARQUI-FÁCIL] No se guardó el proyecto:',error);
+      return false;
+    }
+  },[]);
+
+  useEffect(()=>{
+    // Un dato previamente corrupto no se sobrescribe sin acción explícita.
+    if(initialLoad.error && lastSaveError.current) return;
+    setSaveStatus('saving');
+    const timer=setTimeout(persistNow,600);
+    return ()=>clearTimeout(timer);
+  },[projectName,activeTab,spaces,matrix,floorPlanProposals,colorMode,colorSeed,
+    styleOverrides,matrixTriangular,topologyNodes,matrixDisplayMode,showGooey,
+    gooeyStrength,showFlows,flowGuides,flowSnap,flowGridSize,legendPositions,printSelectedViews,printPageFormat,
+    printDpi,printLegendPlacement,selectedPaletteId,customPalette,extractedColors,customBgMode,
+    showAreaText,topologyTextPos,topologyTextSize,typography,persistNow]);
+
+  useEffect(()=>{
+    const flush=()=>{try{saveProjectToBrowser(latestSnapshot.current);}catch{/* El último estado previo permanece intacto. */}};
+    window.addEventListener('pagehide',flush);
+    return ()=>window.removeEventListener('pagehide',flush);
+  },[]);
+
+  const exportProject=()=>{
+    try{
+      const content=JSON.stringify(makeProjectEnvelope(latestSnapshot.current),null,2);
+      const url=URL.createObjectURL(new Blob([content],{type:'application/json'}));
+      const link=document.createElement('a');
+      link.href=url;
+      const filename=String(projectName||'Proyecto-Arqui-Facil').trim().replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ_-]+/g,'-').slice(0,65);
+      link.download=(filename||'Proyecto-Arqui-Facil')+'.arqui-facil.json';
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),2000);
+    }catch(error){window.alert('No se pudo exportar el proyecto: '+error.message);}
+  };
+  const importProject=async(file)=>{
+    try{
+      if(file.size>12_000_000)throw Error('El archivo supera el límite de 12 MB.');
+      const {data}=parseProjectFile(await file.text());
+      if(!window.confirm('Se reemplazará el proyecto actual por el archivo seleccionado. Antes puedes descargar una copia de seguridad. ¿Continuar?'))return;
+      // Guardar primero una copia válida, antes de actualizar el estado visible.
+      const timestamp=saveProjectToBrowser(data);
+      const setters={
+        projectName:setProjectName,activeTab:setActiveTab,spaces:setSpaces,matrix:setMatrix,
+        floorPlanProposals:setFloorPlanProposals,colorMode:setColorMode,colorSeed:setColorSeed,
+        styleOverrides:setStyleOverrides,matrixTriangular:setMatrixTriangular,topologyNodes:setTopologyNodes,
+        matrixDisplayMode:setMatrixDisplayMode,showGooey:setShowGooey,gooeyStrength:setGooeyStrength,
+        showFlows:setShowFlows,flowGuides:setFlowGuides,flowSnap:setFlowSnap,flowGridSize:setFlowGridSize,legendPositions:setLegendPositions,
+        printLegendPlacement:setPrintLegendPlacement,
+        printSelectedViews:setPrintSelectedViews,printPageFormat:setPrintPageFormat,printDpi:setPrintDpi,
+        selectedPaletteId:setSelectedPaletteId,customPalette:setCustomPalette,extractedColors:setExtractedColors,
+        customBgMode:setCustomBgMode,showAreaText:setShowAreaText,
+        topologyTextPos:setTopologyTextPos,topologyTextSize:setTopologyTextSize,typography:setTypography
+      };
+      for(const field of PROJECT_FIELDS)if(Object.hasOwn(data,field)&&setters[field])setters[field](data[field]);
+      lastSaveError.current=null;setSavedAt(timestamp);setSaveStatus('saved');
+    }catch(error){window.alert('No fue posible abrir esta copia: '+error.message);}
+  };
+
+  const basePalette = (selectedPaletteId === 'custom_image' && customPalette) ? customPalette : PRINT_PALETTES.find(p => p.id === selectedPaletteId) || PRINT_PALETTES.find(p => p.id === 'minimalist');
+  const currentPalette={...basePalette,...Object.fromEntries(['bg','text','lines'].filter(k=>styleOverrides[k]).map(k=>[k,styleOverrides[k]]))};
+  const colors={bg:currentPalette.bg,text:currentPalette.text,lines:currentPalette.lines,direct:styleOverrides.direct||currentPalette.zones.social,indirect:styleOverrides.indirect||currentPalette.zones.service,label:styleOverrides.label||currentPalette.text,area:styleOverrides.area||currentPalette.text,core:styleOverrides.core||currentPalette.text,blend:styleOverrides.blend||currentPalette.zones.private,legendBg:styleOverrides.legendBg||currentPalette.bg,legendBorder:styleOverrides.legendBorder||currentPalette.lines};
+  const changeLegend=(key)=>(position)=>setLegendPositions(prev=>({...prev,[key]:position}));
+  const paletteColors=selectedPaletteId==='custom_image'&&extractedColors.length?extractedColors:[basePalette.bg,basePalette.text,basePalette.lines,...Object.values(basePalette.zones)];
   const uniqueSubzones = useMemo(() => [...new Set(spaces.map(s => s.subzone || 'General'))], [spaces]);
   
   const getSpaceColor = useCallback((space) => {
-    if (colorMode === 'macro') return currentPalette.zones[space.zone] || currentPalette.lines;
+    if(colorMode==='auto'){const palette=selectedPaletteId==='custom_image'&&extractedColors.length?extractedColors:Object.values(currentPalette.zones);let hash=colorSeed*17;for(const ch of String(space.id||space.name))hash=(hash*33+ch.charCodeAt(0))>>>0;return palette[hash%palette.length];}
+    if(colorMode==='macro'){const palette=Object.values(currentPalette.zones),i=Object.keys(currentPalette.zones).indexOf(space.zone);return palette[(i+colorSeed+palette.length)%palette.length]||currentPalette.lines;}
     const szIndex = uniqueSubzones.indexOf(space.subzone || 'General');
-    if (selectedPaletteId === 'custom_image' && extractedColors.length > 0) return extractedColors[szIndex % extractedColors.length];
-    return `hsl(${(szIndex * 137.5) % 360}, 75%, 60%)`;
-  }, [colorMode, currentPalette, uniqueSubzones, selectedPaletteId, extractedColors]);
+    if (selectedPaletteId === 'custom_image' && extractedColors.length > 0) return extractedColors[(szIndex + colorSeed) % extractedColors.length];
+    return `hsl(${((szIndex + colorSeed) * 137.5) % 360}, 75%, 60%)`;
+  }, [colorMode, currentPalette, uniqueSubzones, selectedPaletteId, extractedColors,colorSeed]);
 
   useEffect(() => {
     if (window.XLSX) { setXlsxLoaded(true); return; }
@@ -181,9 +276,10 @@ export default function App() {
         if (!found) colorCounts.push({r, g, b, count: weight});
       }
       colorCounts.sort((a, b) => b.count - a.count); const rgbToHex = (r, g, b) => "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
-      const requiredCount = 15; const colors = [];
-      for(let i = 0; i < requiredCount; i++) { if (colorCounts[i]) colors.push(rgbToHex(colorCounts[i].r, colorCounts[i].g, colorCounts[i].b)); else colors.push('#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')); }
-      setExtractedColors(colors); const zoneKeys = Object.keys(ZONES); const newZones = {}; zoneKeys.forEach((key, idx) => { newZones[key] = colors[idx % colors.length]; });
+      const requiredCount = Math.min(15,colorCounts.length); const colors = [];
+      for(let i = 0; i < requiredCount; i++) { if (colorCounts[i]) colors.push(rgbToHex(colorCounts[i].r, colorCounts[i].g, colorCounts[i].b));  }
+      if(!colors.length)return;
+      setStyleOverrides({});setColorSeed(0);setColorMode('auto');setExtractedColors(colors); const zoneKeys = Object.keys(ZONES); const newZones = {}; zoneKeys.forEach((key, idx) => { newZones[key] = colors[idx % colors.length]; });
       setCustomPalette({ id: 'custom_image', name: 'Extraído de Imagen', bg: customBgMode === 'light' ? '#ffffff' : '#000000', text: customBgMode === 'light' ? '#000000' : '#ffffff', lines: customBgMode === 'light' ? '#e5e5e5' : '#333333', zones: newZones });
       setSelectedPaletteId('custom_image');
     };
@@ -196,12 +292,13 @@ export default function App() {
     setCustomPalette(prev => ({ ...prev, zones: newZones }));
   };
 
+  const graphicControls=<GraphicStyleControls selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} palettes={PRINT_PALETTES} customPalette={customPalette} colorMode={colorMode} setColorMode={setColorMode} shuffle={()=>setColorSeed(n=>n+1)} colors={colors} overrides={styleOverrides} setOverrides={setStyleOverrides} typography={typography} setTypography={setTypography} paletteColors={paletteColors} imageColors={extractedColors} onImageUpload={handleImageUpload}/>;
   const handleSpaceUpdate = (id, field, value) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
-  const removeSpace = (id) => { setSpaces(spaces.filter(s => s.id !== id)); setMatrix(prev => { const nm = {...prev}; Object.keys(nm).forEach(k => { if(k.includes(id)) delete nm[k]; }); return nm; }); };
+  const removeSpace = (id) => { setSpaces(spaces.filter(s => s.id !== id)); setMatrix(prev => { const nm = {...prev}; Object.keys(nm).forEach(k => { if(spaces.some(other=>other.id!==id&&relationKey(other.id,id)===k)) delete nm[k]; }); return nm; }); };
   const addSpace = (e) => { e.preventDefault(); const name = e.target.elements.spaceName.value, area = parseFloat(e.target.elements.spaceArea.value) || 10, zone = e.target.elements.spaceZone.value, subzone = e.target.elements.spaceSubzone.value || name; if (!name.trim()) return; setSpaces([...spaces, { id: generateId(), name, area, zone, subzone, x: 200, y: 200, w: 120, h: 80, pinned: false }]); e.target.reset(); };
   
-  const getRelation = (id1, id2) => matrix[relationKey(id1, id2)] || 0;
-  const cycleRelation = (id1, id2) => { const key = [id1, id2].sort().join('-'); const current = matrix[key] || 0; setMatrix(prev => ({ ...prev, [key]: nextRelation(current) })); };
+  const getRelation = (id1, id2) => matrix[relationKey(id1,id2)] || 0;
+  const cycleRelation = (id1, id2) => { const key = [id1, id2].sort().join('-'); const current = matrix[key] || 0; setMatrix(prev => ({ ...prev, [key]: current === 0 ? 1 : current === 1 ? 3 : 0 })); };
   const handleSpacePositionUpdate = (id, newX, newY) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, x: newX, y: newY } : s));
   const handleSpaceSizeUpdate = (id, newW, newH) => setSpaces(prev => prev.map(s => s.id === id ? { ...s, w: Math.max(50, newW), h: Math.max(50, newH) } : s));
 
@@ -243,7 +340,7 @@ export default function App() {
   const totalArea = spaces.reduce((sum, s) => sum + s.area, 0);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{'--af-graphic-font':`'${typography.fontFamily}', Arial, sans-serif`}}>
       <aside className="sidebar">
         <a href="#" className="brand" aria-label="Arqui Fácil, ir al programa" onClick={e => {e.preventDefault(); setActiveTab('spaces');}}>
           <svg className="brand-symbol" viewBox="0 0 36 36" fill="none" aria-hidden="true"><path d="M4 30 16 6h5l12 24h-7l-3-6H14l-3 6H4Zm12-11h5l-2.5-6L16 19Z" fill="currentColor"/><path d="M29 4v7m-3-3.5h7" stroke="currentColor" strokeWidth="1.5"/></svg>
@@ -256,16 +353,16 @@ export default function App() {
         <div className="sidebar-bottom"><div className="sidebar-art" aria-hidden="true">{Array.from({length:12}, (_,i)=><i key={i} style={{width:`${44+i*4}%`, transform:`translateX(${i*2}px)`}}/>)}</div><span className="eyebrow">DEL PROGRAMA A LA FORMA.</span><p>Herramientas para pensar<br/>la arquitectura.</p><span className="version-tag">ESTUDIO EXPERIMENTAL · V.01</span></div>
       </aside>
       <main className="workspace">
-        <header className="workspace-header"><div className="breadcrumb"><span>ESPACIO DE TRABAJO</span><span>/</span><strong>{activeModule.label}</strong></div><div className="workspace-label"><span className="status-dot"/>Proyecto de ejemplo<span className="header-initial">AF</span></div></header>
+        <header className="workspace-header"><div className="breadcrumb"><span>ESPACIO DE TRABAJO</span><span>/</span><strong>{activeModule.label}</strong></div><ProjectSaveControls projectName={projectName} setProjectName={setProjectName} saveStatus={saveStatus} savedAt={savedAt} onSave={persistNow} onExport={exportProject} onImport={importProject}/></header>
         <div className="module-stage" key={activeTab}>
         {activeTab === 'spaces' && <SpacesView spaces={spaces} addSpace={addSpace} removeSpace={removeSpace} handleSpaceUpdate={handleSpaceUpdate} colorMode={colorMode} setColorMode={setColorMode} getSpaceColor={getSpaceColor} currentPalette={currentPalette} onExcelImport={handleExcelImport} importPreviewData={importPreviewData} importHeaders={importHeaders} importMapping={importMapping} setImportMapping={setImportMapping} confirmImport={confirmImport} cancelImport={() => setImportPreviewData(null)} importSheetNames={importSheetNames} selectedSheet={selectedSheet} onSheetChange={(e) => processExcelSheet(importWorkbook, e.target.value)} setSpaces={setSpaces} isGeneratingAI={isGeneratingAI} setIsGeneratingAI={setIsGeneratingAI} />}
-        {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix} matrixShape={matrixShape} setMatrixShape={setMatrixShape} matrixDisplayMode={matrixDisplayMode} setMatrixDisplayMode={setMatrixDisplayMode} legendPos={matrixLegendPos} setLegendPos={setMatrixLegendPos} />}
-        {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setSpaces} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize} />}
-        {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} showAreaText={showAreaText} setShowAreaText={setShowAreaText} />}
+        {activeTab === 'matrix' && <MatrixView spaces={spaces} getRelation={getRelation} cycleRelation={cycleRelation} currentPalette={currentPalette} getSpaceColor={getSpaceColor} isGeneratingMatrix={isGeneratingMatrix} setIsGeneratingMatrix={setIsGeneratingMatrix} setMatrix={setMatrix}  isTriangular={matrixTriangular} setIsTriangular={setMatrixTriangular} colors={colors} typography={typography} legendPosition={legendPositions.matrix} onLegendPositionChange={changeLegend('matrix')} controls={graphicControls} displayMode={matrixDisplayMode} setDisplayMode={setMatrixDisplayMode} />}
+        {activeTab === 'diagram' && <DiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onNodesChange={setTopologyNodes} showAreaText={showAreaText} setShowAreaText={setShowAreaText} topologyTextPos={topologyTextPos} setTopologyTextPos={setTopologyTextPos} topologyTextSize={topologyTextSize} setTopologyTextSize={setTopologyTextSize}  savedNodes={topologyNodes} showGooey={showGooey} setShowGooey={setShowGooey} gooeyStrength={gooeyStrength} setGooeyStrength={setGooeyStrength} colors={colors} typography={typography} legendPosition={legendPositions.topology} onLegendPositionChange={changeLegend('topology')} controls={graphicControls} />}
+        {activeTab === 'flowdiagram' && <FlowDiagramView spaces={spaces} matrix={matrix} currentPalette={currentPalette} getSpaceColor={getSpaceColor} onUpdatePosition={handleSpacePositionUpdate} onUpdateSize={handleSpaceSizeUpdate} onApplyLayout={setSpaces} topologyNodes={topologyNodes} flowGuides={flowGuides} setFlowGuides={setFlowGuides} flowSnap={flowSnap} setFlowSnap={setFlowSnap} flowGridSize={flowGridSize} setFlowGridSize={setFlowGridSize} showAreaText={showAreaText} setShowAreaText={setShowAreaText}  showFlows={showFlows} setShowFlows={setShowFlows} colors={colors} typography={typography} setStyleOverrides={setStyleOverrides} legendPosition={legendPositions.flowdiagram} onLegendPositionChange={changeLegend('flowdiagram')} controls={graphicControls} />}
         {activeTab === 'floorplan' && <FloorPlanView spaces={spaces} matrix={matrix} proposals={floorPlanProposals} setProposals={setFloorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} />}
-        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize} matrixShape={matrixShape} matrixDisplayMode={matrixDisplayMode} legendPos={matrixLegendPos} />}
+        {activeTab === 'print' && <PrintStudioView spaces={spaces} matrix={matrix} getRelation={getRelation} floorPlanProposals={floorPlanProposals} currentPalette={currentPalette} getSpaceColor={getSpaceColor} selectedPaletteId={selectedPaletteId} setSelectedPaletteId={setSelectedPaletteId} customPalette={customPalette} handleImageUpload={handleImageUpload} shuffleCustomPalette={shuffleCustomPalette} customBgMode={customBgMode} setCustomBackground={setCustomBackground} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={topologyTextSize}  matrixTriangular={matrixTriangular} topologyNodes={topologyNodes} showGooey={showGooey} gooeyStrength={gooeyStrength} showFlows={showFlows} colors={colors} typography={typography} legendPositions={legendPositions} graphicControls={graphicControls} selectedViews={printSelectedViews} setSelectedViews={setPrintSelectedViews} pageFormat={printPageFormat} setPageFormat={setPrintPageFormat} printDpi={printDpi} setPrintDpi={setPrintDpi} matrixDisplayMode={matrixDisplayMode} printLegendPlacement={printLegendPlacement} setPrintLegendPlacement={setPrintLegendPlacement} />}
         </div>
-        <footer className="workspace-footer"><span><span className="status-dot"/>Sesión local · sin guardado permanente</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
+        <footer className="workspace-footer"><span><span className="status-dot"/>Guardado local automático · descarga una copia para mayor seguridad</span><span>{spaces.length} ESPACIOS<span className="footer-divider">/</span>{totalArea.toLocaleString('es-PE')} m²<span className="footer-divider">/</span>ARQUI FÁCIL © {new Date().getFullYear()}</span></footer>
       </main>
     </div>
   );
@@ -396,150 +493,33 @@ function SpacesView({ spaces, addSpace, removeSpace, handleSpaceUpdate, colorMod
 }
 
 // ==========================================
-// VISTA 2: MATRIZ FUNCIONAL
+// VISTA 2: MATRIZ
 // ==========================================
-function FunctionalMatrixGraphic({ spaces, getRelation, cycleRelation, getSpaceColor, triangular = true, mode = 'mixto', editable = true, legendPos = {x:20,y:16}, setLegendPos }) {
-  const layout = matrixLayout(spaces.length, triangular);
-  const { roomWidth, rowHeight, headerHeight, half } = layout;
-  const [dragLegend, setDragLegend] = useState(false);
-  const legendDrag = useRef(null);
-  const diamond = (i, j) => {
-    const row = spaces[i], col = spaces[j], same = i === j;
-    const value = same ? 0 : relationValue(getRelation(row.id, col.id));
-    const { x, y } = matrixCell(layout, i, j);
-    const active = editable && !same;
-    const label = 'Relación entre ' + row.name + ' y ' + col.name + ': ' + value + '. Clic para cambiar.';
-    const shape = triangular
-      ? <polygon className="fm-tile" points={[[x,y-half],[x+half,y],[x,y+half],[x-half,y]].map(p=>p.join(',')).join(' ')} />
-      : <rect className="fm-tile" x={x-half} y={y-half} width={rowHeight} height={rowHeight} />;
-    return <g key={row.id + '-' + col.id} className={active ? 'fm-editable' : 'fm-fixed'}
-      role={active ? 'button' : undefined} tabIndex={active ? 0 : undefined}
-      aria-label={active ? label : undefined} onClick={active ? () => cycleRelation(row.id,col.id) : undefined}
-      onKeyDown={active ? e => { if(e.key === 'Enter' || e.key === ' ') {e.preventDefault();cycleRelation(row.id,col.id);} } : undefined}>
-      {shape}
-      {!same && value > 0 && mode !== 'numero' && <circle cx={x} cy={y} r={13.5}
-        fill={value === 2 ? '#424844' : '#9aa79b'} opacity={value === 2 ? 1 : 0.67} />}
-      {!same && value > 0 && mode !== 'grafico' && <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
-        fontSize="13" fontWeight="700" fontFamily="IBM Plex Mono, monospace" pointerEvents="none"
-        fill={mode !== 'numero' && value === 2 ? '#fff' : '#252a27'}>{value}</text>}
-      {active && <title>{label}</title>}
-    </g>;
-  };
-  return <div className="fm-sheet" style={{width:layout.width, minWidth:layout.width}} aria-label="Matriz funcional arquitectónica">
-    <svg className="fm-svg" width={layout.width} height={layout.height} viewBox={'0 0 '+layout.width+' '+layout.height}
-      aria-label={triangular ? 'Matriz triangular alineada y cerrada' : 'Matriz cuadrada'}>
-      <rect x="1" y="1" width={roomWidth+(triangular?rowHeight:0)-2} height={headerHeight-2} rx="11" fill="#f4f6f2" stroke="#dce2db" />
-      <text x={roomWidth+(triangular?rowHeight:0)+12} y="33" className="fm-head-text">RELACIONES ENTRE RECINTOS</text>
-      <text x="18" y="33" className="fm-head-text">N.º / RECINTO ARQUITECTÓNICO</text>
-      <text x={roomWidth-83} y="33" textAnchor="middle" className="fm-head-text">ÁREA</text>
-      <text x={triangular?roomWidth+half:roomWidth-half} y="33" textAnchor="middle" className="fm-head-text"><title>Suma de los valores de relación: 0, 1 y 2.</title>Σ</text>
-      {spaces.map((room,i)=>{
-        const top=layout.rowStart+i*rowHeight, mid=top+half, color=getSpaceColor(room);
-        const sum=relationTotal(room.id,spaces,getRelation), summaryX=triangular?roomWidth+half:roomWidth-half;
-        return <g key={'room-'+room.id} className="fm-room-row" data-room-id={room.id}>
-          <path className="fm-room-shape" d={matrixRowShape(layout,i)} fill="#fff" stroke="#d5ded7" strokeWidth="1" />
-          <path d={matrixRowShape(layout,i)} fill={color} fillOpacity=".13" pointerEvents="none" />
-          <rect x="0" y={top} width="5" height={rowHeight} fill={color} opacity=".7" />
-          <text x="18" y={mid} dominantBaseline="middle" className="fm-row-label">
-            {(i+1)+'. '+(room.name.length>39 ? room.name.slice(0,37)+'…':room.name)}
-          </text>
-          <text x={roomWidth-96} y={mid} textAnchor="end" dominantBaseline="middle"
-            className="fm-row-info">{Number(room.area||0).toLocaleString('es-PE',{maximumFractionDigits:1})} m²</text>
-          <g className="fm-row-summary" role="img" aria-label={'Sumatoria de relaciones de '+room.name+': '+sum}>
-            <title>{'Σ '+room.name+': '+sum+' (suma de relaciones 0, 1 y 2)'}</title>
-            {triangular && <circle cx={summaryX} cy={mid} r="14" fill="#fff" stroke={color} strokeWidth="1.6" />}
-            <text x={summaryX} y={mid} textAnchor="middle" dominantBaseline="central"
-              className="fm-row-total">{sum}</text>
-          </g>
-        </g>;
-      })}
-      {triangular
-        ? spaces.flatMap((room,i)=>spaces.slice(i+1).map((col,k)=>diamond(i,i+k+1)))
-        : spaces.flatMap((room,i)=>spaces.map((col,j)=>diamond(i,j)))}
-      <path d={matrixOutline(layout)} className="fm-perimeter" pointerEvents="none" />
-      <g transform={'translate(' + Math.max(0, Math.min(layout.width-330, legendPos.x)) + ' ' + (layout.rowStart + spaces.length*rowHeight + Math.max(0,Math.min(34,legendPos.y))) + ')'}
-        className={editable ? 'fm-svg-legend fm-svg-legend-movable' : 'fm-svg-legend'}
-        style={{cursor:editable?'grab':'default',touchAction:'none'}}
-        onPointerDown={editable && setLegendPos ? e => {e.preventDefault();e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);legendDrag.current={x:e.clientX,y:e.clientY,pos:legendPos,scale:e.currentTarget.ownerSVGElement.getBoundingClientRect().width/layout.width};setDragLegend(true);} : undefined}
-        onPointerMove={editable && setLegendPos ? e => {if(!legendDrag.current)return;const d=legendDrag.current;setLegendPos({x:Math.max(0,Math.min(layout.width-330,d.pos.x+(e.clientX-d.x)/d.scale)),y:Math.max(0,Math.min(34,d.pos.y+(e.clientY-d.y)/d.scale))});} : undefined}
-        onPointerUp={editable ? e => {if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);legendDrag.current=null;setDragLegend(false);} : undefined}
-        aria-label="Leyenda de relaciones; arrastra para mover">
-        <rect width="326" height="40" rx="9" fill="#fff" stroke="#d8dfd8"/>
-        <rect x="10" y="12" width="12" height="12" fill="none" stroke="#9ba79c"/>
-        <text x="28" y="22" className="fm-legend-svg-text">0 Nula</text>
-        <line x1="97" y1="19" x2="121" y2="19" stroke="#434b44" strokeWidth="2" strokeDasharray="5 4"/>
-        <text x="128" y="22" className="fm-legend-svg-text">1 Indirecta</text>
-        <line x1="218" y1="19" x2="242" y2="19" stroke="#434b44" strokeWidth="2"/>
-        <text x="249" y="22" className="fm-legend-svg-text">2 Directa</text>
-      </g>
-    </svg>
-  </div>;
-}
-
-function MatrixLegend() {
-  return <div className="fm-legend" aria-label="Leyenda de relaciones funcionales">
-    <span><i className="fm-legend-box fm-box-none" aria-hidden="true"/>0 · Relación nula</span>
-    <span><i className="fm-legend-line fm-line-indirect" aria-hidden="true"/>1 · Relación indirecta</span>
-    <span><i className="fm-legend-line fm-line-direct" aria-hidden="true"/>2 · Relación directa</span>
-    <span className="fm-help">Clic: 0 → 1 → 2 → 0</span>
-  </div>;
-}
-
-function MatrixView({spaces,getRelation,cycleRelation,getSpaceColor,isGeneratingMatrix,setIsGeneratingMatrix,setMatrix,matrixShape,setMatrixShape,matrixDisplayMode,setMatrixDisplayMode,legendPos,setLegendPos}) {
-  const triangular=matrixShape==='triangular';
-  const randomize=()=>{
-    if(!window.confirm('La demostración aleatoria sustituirá las relaciones actuales. ¿Continuar?'))return;
-    setIsGeneratingMatrix(true);
-    setTimeout(()=>{
-      const next={};
-      for(let i=0;i<spaces.length;i++)for(let j=i+1;j<spaces.length;j++){
-        const r=Math.random(),key=[spaces[i].id,spaces[j].id].sort().join('-');
-        if(r>.66)next[key]=2;else if(r>.33)next[key]=1;
-      }
-      setMatrix(next);setIsGeneratingMatrix(false);
-    },300);
-  };
-  if(spaces.length<2)return <div className="p-8 text-center">Agrega al menos dos espacios para construir la matriz.</div>;
-  return <div className="fm-screen custom-scrollbar">
-    <header className="fm-header"><div><span className="fm-eyebrow">DISEÑO DE RELACIONES ESPACIALES</span>
-      <h2>Matriz <strong>funcional</strong></h2><p>Haz clic en las celdas para editar las relaciones entre espacios.</p></div>
-      <button className="fm-demo-button" type="button" onClick={randomize} disabled={isGeneratingMatrix}
-        title="Demostración aleatoria; no utiliza IA y reemplaza las relaciones">{isGeneratingMatrix?<Loader2 size={15} className="animate-spin"/>:<Sparkles size={15}/>} MATRIZ ALEATORIA · DEMO</button>
-    </header>
-    <div className="fm-toolbar">
-      <div className="fm-control"><span>GEOMETRÍA</span><button type="button" className="fm-mode-button"
-        aria-label={'FORMA: '+(triangular?'TRIANGULAR':'CUADRADA')}
-        onClick={()=>setMatrixShape(triangular?'cuadrada':'triangular')}><Grid size={15}/>{triangular?'Triangular':'Cuadrada'}<Shuffle size={13}/></button></div>
-      <fieldset className="fm-control fm-choices"><legend>VISUALIZACIÓN</legend>
-        {[['grafico','Solo gráfico'],['numero','Solo número'],['mixto','Mixto']].map(([id,label])=>
-          <button type="button" key={id} aria-pressed={matrixDisplayMode===id}
-            className={'fm-mode-button '+(matrixDisplayMode===id?'is-selected':'')}
-            onClick={()=>setMatrixDisplayMode(id)}>{label}</button>)}
-      </fieldset>
-    </div>
-    <div className="fm-canvas-scroll"><FunctionalMatrixGraphic spaces={spaces} getRelation={getRelation}
-      cycleRelation={cycleRelation} getSpaceColor={getSpaceColor} triangular={triangular} mode={matrixDisplayMode} legendPos={legendPos} setLegendPos={setLegendPos}/></div>
-    <p className="fm-legend-hint">Arrastra la leyenda dentro del gráfico para ajustar su posición.</p>
-  </div>;
+function MatrixView({ spaces, getRelation, cycleRelation, currentPalette, getSpaceColor, isGeneratingMatrix, setIsGeneratingMatrix, setMatrix, isTriangular, setIsTriangular, colors, legendPosition, onLegendPositionChange, controls, typography, displayMode, setDisplayMode }) {
+ const handleAISolve=()=>{setIsGeneratingMatrix(true);setTimeout(()=>{const next={};for(let i=0;i<spaces.length;i++)for(let j=i+1;j<spaces.length;j++){const r=Math.random();if(r>.8)next[relationKey(spaces[i].id,spaces[j].id)]=3;else if(r>.5)next[relationKey(spaces[i].id,spaces[j].id)]=1;}setMatrix(next);setIsGeneratingMatrix(false);},2000);};
+ if(spaces.length<2)return <div className="p-8 text-center">Agrega espacios primero.</div>;
+ return <div className="p-6 h-full overflow-auto">
+   <header className="mb-5 flex flex-wrap items-center justify-between gap-4"><h2 className="text-2xl">Matriz <b>funcional</b></h2><div className="flex gap-2 flex-wrap items-center">{controls}<label className="af-matrix-mode-field"><span>VISUALIZACIÓN</span><select aria-label="Visualización de relaciones" value={displayMode} onChange={e=>setDisplayMode(e.target.value)}><option value="both">Gráfico + número</option><option value="graphic">Solo gráfico</option><option value="number">Solo número</option></select></label><button className="px-3 py-2 text-xs border rounded" onClick={handleAISolve} disabled={isGeneratingMatrix}>{isGeneratingMatrix?'Generando…':'MATRIZ ALEATORIA · DEMO'}</button><button className="px-3 py-2 text-xs bg-[#292925] text-white rounded" onClick={()=>setIsTriangular(v=>!v)}>FORMA: {isTriangular?'TRIANGULAR':'CUADRADA'}</button></div></header>
+   <div className="af-matrix-board" style={{background:currentPalette.bg}}><div className="af-matrix-scroll" style={{'--matrix-bg':currentPalette.bg}}><MatrixDiamond spaces={spaces} getRelation={getRelation} onCycleRelation={cycleRelation} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} variant={isTriangular?'diamond':'square'} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} displayMode={displayMode}/></div><LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'2',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect},{code:'–',text:'Nula / Sin relación',color:currentPalette.lines}]}/></div>
+ </div>;
 }
 
 // ==========================================
 // VISTA 3: TOPOLOGÍA FÍSICA (Metaball / Gooey)
 // ==========================================
-function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesChange, showAreaText, setShowAreaText, topologyTextPos, setTopologyTextPos, topologyTextSize, setTopologyTextSize }) {
+function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesChange, showAreaText, setShowAreaText, topologyTextPos, setTopologyTextPos, topologyTextSize, setTopologyTextSize, savedNodes, showGooey, setShowGooey, gooeyStrength, setGooeyStrength, colors, legendPosition, onLegendPositionChange, controls, typography }) {
   const containerRef = useRef(null); const requestRef = useRef();
-  const [nodes, setNodes] = useState([]);
+  const [nodes, setNodes] = useState(()=>savedNodes||[]);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [zoom, setZoom] = useState(1); const [cameraOffset, setCameraOffset] = useState({ x: 0, y: 0 });
   const [springLength, setSpringLength] = useState(150);
-  const [gooeyStrength, setGooeyStrength] = useState(1.8);
-  const [showGooey, setShowGooey] = useState(true);
   
   const nodesRef = useRef(nodes); const dragTarget = useRef(null); const mousePos = useRef({ x: 0, y: 0 });
   const isPanning = useRef(false); const panStart = useRef({ x: 0, y: 0 });
 
   useCanvasWheelZoom(containerRef, setZoom, spaces.length >= 2);
 
+  useEffect(() => () => onNodesChange(nodesRef.current), []);
   const unpinAll = () => { const unp = nodesRef.current.map(n => ({ ...n, pinned: false })); setNodes(unp); onNodesChange(unp); };
 
   useEffect(() => {
@@ -548,7 +528,7 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
       const existingMap = new Map(currentNodes.map(n => [n.id, n]));
       return spaces.map((s, i) => {
         const calculatedRadius = Math.max(30, Math.sqrt(s.area || 10) * 8);
-        if (existingMap.has(s.id)) return { ...existingMap.get(s.id), ...s, radius: calculatedRadius };
+        if (existingMap.has(s.id)) return { ...s, ...existingMap.get(s.id), name:s.name, area:s.area, zone:s.zone, subzone:s.subzone, radius: calculatedRadius };
         const goldenRatio = 1.61803398875; const angle = i * Math.PI * 2 * goldenRatio; const rSpread = 100 + Math.sqrt(i) * 60; 
         const initX = s.tx !== undefined ? s.tx : 400 + Math.cos(angle) * rSpread; const initY = s.ty !== undefined ? s.ty : 300 + Math.sin(angle) * rSpread;
         return { ...s, x: initX, y: initY, vx: 0, vy: 0, radius: calculatedRadius, pinned: s.pinned !== undefined ? s.pinned : false };
@@ -589,7 +569,7 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
             const maxRepulseDist = springLength * 1.5; 
             if (dist > minRequiredDist && dist < maxRepulseDist) { force += (maxRepulseDist - dist) * 0.01; } 
           } 
-          else if (weight === 2) { 
+          else if (weight === 3) { 
             const idealDist = minRequiredDist + (springLength * 0.2); 
             force += (idealDist - dist) * 0.06; 
           } 
@@ -646,6 +626,7 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
       <div className="bg-[#ffffff]/90 backdrop-blur-md px-6 py-4 shadow-lg flex flex-wrap justify-between items-center z-20 border-b border-[#ddddd5] gap-4">
         <div><h2 className="text-xl font-light text-[#20201c] tracking-wide">Topología <span className="font-bold text-[#292925] text-[10px] bg-[#292925]/10 border border-[#292925]/30 px-2 py-1 rounded-full uppercase">Metaball</span></h2><p className="text-[10px] uppercase text-[#73736c] mt-1">Arrastra para fijar. Doble clic libera. Botón central o Alt + arrastrar: mover lienzo. Rueda: zoom.</p></div>
         <div className="flex items-center gap-3 flex-wrap">
+          {controls}
           <button onClick={unpinAll} className="px-3 py-1.5 rounded text-xs font-bold bg-[#a23d32]/10 text-[#a23d32] border border-[#a23d32]/30 hover:bg-[#a23d32] hover:text-[#20201c] transition-all">Desbloquear</button>
           <div className="w-px h-6 bg-[#ddddd5]"></div>
           
@@ -672,62 +653,9 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
       <div className={`flex-1 relative overflow-hidden touch-none ${isPanning.current ? 'cursor-grabbing' : 'cursor-crosshair'}`} ref={containerRef} onPointerDown={handleContainerPointerDown} onPointerMove={handleContainerPointerMove} onPointerUp={handleContainerPointerUp} onPointerCancel={handleContainerPointerUp} onMouseDown={e => { if(e.button === 1) e.preventDefault(); }} onAuxClick={e => { if(e.button === 1) e.preventDefault(); }}>
         <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `${40*zoom}px ${40*zoom}px`, backgroundPosition: `${cameraOffset.x}px ${cameraOffset.y}px` }}></div>
         <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
-          <svg width="4000" height="4000" className="absolute inset-0 overflow-visible" fontFamily="DM Sans, sans-serif">
-            <defs>
-              <filter id="gooey"><feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" /><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -10" result="goo" /><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
-              {nodes.map((nodeA, i) => nodes.slice(i + 1).map(nodeB => {
-                const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null;
-                return (<linearGradient key={`grad-${nodeA.id}-${nodeB.id}`} id={`grad-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor={getSpaceColor(nodeA)} /><stop offset="100%" stopColor={getSpaceColor(nodeB)} /></linearGradient>);
-              }))}
-            </defs>
-            {showGooey && (
-              <g opacity="0.6" filter="url(#gooey)">
-                {nodes.map((nodeA, i) => nodes.slice(i + 1).map(nodeB => {
-                  const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null;
-                  const dx = nodeA.x - nodeB.x, dy = nodeA.y - nodeB.y; const dist = Math.sqrt(dx*dx + dy*dy); const optimalDist = nodeA.radius + nodeB.radius + springLength; const maxStretch = optimalDist * 1.5; 
-                  if (dist > maxStretch) return null; 
-                  const baseThickness = Math.min(nodeA.radius, nodeB.radius) * gooeyStrength; let currentThickness = baseThickness;
-                  if (dist > optimalDist) { const stretchRatio = Math.max(0, 1 - ((dist - optimalDist) / (maxStretch - optimalDist))); currentThickness = baseThickness * stretchRatio; }
-                  if (currentThickness < 2) return null;
-                  return <line key={`goo-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={`url(#grad-${nodeA.id}-${nodeB.id})`} strokeWidth={currentThickness} strokeLinecap="round" />;
-                }))}
-                {nodes.map(node => <circle key={`goo-node-${node.id}`} cx={node.x} cy={node.y} r={node.radius * gooeyStrength} fill={getSpaceColor(node)} />)}
-              </g>
-            )}
-            <g>{nodes.map((nodeA, i) => nodes.slice(i + 1).map(nodeB => { const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null; return <line key={`dash-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={currentPalette.text} strokeWidth="1.5" strokeDasharray={relationDasharray(weight)} opacity={weight===2?0.75:0.5} />; }))}</g>
-            {nodes.map(node => {
-               const zColor = getSpaceColor(node); const textRadius = node.radius + 6; const pathId = `text-path-${node.id}`;
-               return (
-                <g key={`node-group-${node.id}`}>
-                  <g className={dragTarget.current === node.id ? 'cursor-grabbing' : 'cursor-grab'} onPointerDown={(e) => handlePointerDownNode(node.id, e)} onDoubleClick={(e) => handleDoubleClickNode(node.id, e)}>
-                    {node.pinned && <circle cx={node.x} cy={node.y} r={node.radius + 12} fill="none" stroke={zColor} strokeWidth="1.5" strokeDasharray="3,3" opacity="0.6" />}
-                    <circle cx={node.x} cy={node.y} r={node.radius} fill={currentPalette.bg} stroke={currentPalette.bg} strokeWidth="4" opacity="0.85" />
-                    <circle cx={node.x} cy={node.y} r={node.radius} fill={zColor} fillOpacity="0.3" stroke={zColor} strokeWidth="2" />
-                    
-                    {/* Renderización de textos y núcleos dependiente de topologyTextPos */}
-                    {topologyTextPos === 'edge' ? (
-                       <>
-                         <circle cx={node.x} cy={node.y} r="4" fill={currentPalette.bg} /><circle cx={node.x} cy={node.y} r="2" fill={currentPalette.text} />
-                         {showAreaText && <text x={node.x} y={node.y + 14} textAnchor="middle" fill={zColor} className="text-[10px] font-mono font-bold opacity-90 pointer-events-none">{node.area} m²</text>}
-                       </>
-                    ) : (
-                       <>
-                         <text x={node.x} y={node.y - (showAreaText ? (topologyTextSize/2 - 2) : 0)} textAnchor="middle" dominantBaseline="central" fill={currentPalette.text} style={{ fontSize: `${topologyTextSize}px` }} className="font-bold uppercase tracking-wider pointer-events-none">{node.name.length > 15 ? node.name.substring(0, 13) + '.' : node.name}</text>
-                         {showAreaText && <text x={node.x} y={node.y + (topologyTextSize/2 + 6)} textAnchor="middle" dominantBaseline="central" fill={zColor} className="text-[10px] font-mono font-bold opacity-90 pointer-events-none">{node.area} m²</text>}
-                       </>
-                    )}
-                  </g>
-                  {topologyTextPos === 'edge' && (
-                    <g className="pointer-events-none">
-                      <defs><path id={pathId} d={`M ${node.x - textRadius} ${node.y} A ${textRadius} ${textRadius} 0 1 1 ${node.x + textRadius} ${node.y}`} /></defs>
-                      <text fill={currentPalette.text} style={{ fontSize: `${topologyTextSize}px` }} className="font-bold uppercase tracking-widest"><textPath href={`#${pathId}`} startOffset="50%" textAnchor="middle">{node.name.length > 20 ? node.name.substring(0, 18) + '.' : node.name}</textPath></text>
-                    </g>
-                  )}
-                </g>
-              )
-            })}
-          </svg>
+          <TopologyArtwork nodes={nodes} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showGooey={showGooey} gooeyStrength={gooeyStrength} showAreaText={showAreaText} topologyTextPos={topologyTextPos} topologyTextSize={typography.labelSize} areaTextSize={typography.areaSize} onNodePointerDown={handlePointerDownNode} onNodeDoubleClick={handleDoubleClickNode}/>
         </div>
+        <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'2',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect}]}/>
       </div>
     </div>
   );
@@ -736,15 +664,15 @@ function DiagramView({ spaces, matrix, currentPalette, getSpaceColor, onNodesCha
 // ==========================================
 // VISTA 4: DIAGRAMA DE RELACIONES
 // ==========================================
-function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpdatePosition, onUpdateSize, showAreaText, setShowAreaText }) {
-  const [showFlows, setShowFlows] = useState(false); const containerRef = useRef(null);
-  const [lineDirectColor, setLineDirectColor] = useState(currentPalette.text); const [lineIndirectColor, setLineIndirectColor] = useState(currentPalette.text); const [boxTextColor, setBoxTextColor] = useState(currentPalette.text);
+function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpdatePosition, onUpdateSize, onApplyLayout, topologyNodes, flowGuides, setFlowGuides, flowSnap, setFlowSnap, flowGridSize, setFlowGridSize, showAreaText, setShowAreaText, showFlows, setShowFlows, colors, setStyleOverrides, legendPosition, onLegendPositionChange, controls, typography }) {
+  const containerRef = useRef(null);
+  const onColorChange=(field,value)=>setStyleOverrides(prev=>({...prev,[field]:value}));
   const [draggingId, setDraggingId] = useState(null); const [resizingId, setResizingId] = useState(null); const mouseOffset = useRef({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1); const [cameraOffset, setCameraOffset] = useState({ x: 0, y: 0 }); const isPanning = useRef(false); const panStart = useRef({ x: 0, y: 0 });
 
+  const [alignment,setAlignment]=useState({vertical:null,horizontal:null});
   useCanvasWheelZoom(containerRef, setZoom, spaces.length > 0);
 
-  useEffect(() => { setLineDirectColor(currentPalette.text); setLineIndirectColor(currentPalette.text); setBoxTextColor(currentPalette.text); }, [currentPalette]);
   const drawOrthogonalLine = (n1, n2) => { const cx1 = n1.x + n1.w / 2, cy1 = n1.y + n1.h / 2, cx2 = n2.x + n2.w / 2, cy2 = n2.y + n2.h / 2; if (Math.abs(cx1 - cx2) > Math.abs(cy1 - cy2)) return `M ${cx1} ${cy1} H ${(cx1 + cx2) / 2} V ${cy2} H ${cx2}`; else return `M ${cx1} ${cy1} V ${(cy1 + cy2) / 2} H ${cx2} V ${cy2}`; };
   const drawOrganicCurve = (n1, n2) => { const cx1 = n1.x + n1.w / 2, cy1 = n1.y + n1.h / 2, cx2 = n2.x + n2.w / 2, cy2 = n2.y + n2.h / 2; return `M ${cx1} ${cy1} C ${cx1 + (cx2-cx1)/2} ${cy1}, ${cx1 + (cx2-cx1)/2} ${cy2}, ${cx2} ${cy2}`; };
   const getMouseCoord = (e) => { if (!containerRef.current) return {x:0, y:0}; const rect = containerRef.current.getBoundingClientRect(); return { x: (e.clientX - rect.left - cameraOffset.x) / zoom, y: (e.clientY - rect.top - cameraOffset.y) / zoom }; };
@@ -757,10 +685,21 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
       const dx = e.clientX - panStart.current.x, dy = e.clientY - panStart.current.y;
       panStart.current = { x: e.clientX, y: e.clientY };
       setCameraOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
-    } else if (draggingId) { const coords = getMouseCoord(e); onUpdatePosition(draggingId, coords.x - mouseOffset.current.x, coords.y - mouseOffset.current.y); }
+    } else if (draggingId) {
+      const coords=getMouseCoord(e),node=spaces.find(s=>s.id===draggingId);
+      if(!node)return;
+      const point=alignFlowNode(node,spaces.filter(s=>s.id!==draggingId),coords.x-mouseOffset.current.x,coords.y-mouseOffset.current.y,{grid:flowGridSize,snap:flowSnap,guides:flowGuides,tolerance:12/zoom});
+      onUpdatePosition(draggingId,point.x,point.y);
+      setAlignment({vertical:point.vertical,horizontal:point.horizontal});
+    }
     else if (resizingId) { const coords = getMouseCoord(e); onUpdateSize(resizingId, coords.x - mouseOffset.current.x, coords.y - mouseOffset.current.y); }
   };
-  const handleContainerPointerUp = (e) => { if (isPanning.current) { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); isPanning.current = false; } setDraggingId(null); setResizingId(null); };
+  const handleContainerPointerUp = (e) => { if (isPanning.current) { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); isPanning.current = false; } setDraggingId(null); setResizingId(null); setAlignment({vertical:null,horizontal:null}); };
+  const copyBubbleLayout=()=>{
+    if(!window.confirm('Se organizará el diagrama de relaciones según las posiciones de las burbujas. Se reemplazarán las posiciones actuales. ¿Continuar?'))return;
+    onApplyLayout(layoutFlowFromBubbles(spaces,topologyNodes,flowGridSize));
+    setCameraOffset({x:0,y:0});setZoom(1);
+  };
 
   if (spaces.length === 0) return <div className="p-8 text-center text-[#73736c]">Defina espacios primero.</div>;
   return (
@@ -768,40 +707,32 @@ function FlowDiagramView({ spaces, matrix, currentPalette, getSpaceColor, onUpda
       <div className="bg-[#ffffff]/90 backdrop-blur-md px-6 py-4 shadow-lg flex justify-between items-center z-20 border-b border-[#ddddd5] flex-wrap gap-4">
         <div><h2 className="text-xl font-light text-[#20201c] tracking-wide">Diagrama de <span className="font-bold text-[#292925]">Relaciones</span></h2><p className="text-[10px] uppercase text-[#73736c] mt-1">Arrastra esquinas para redimensionar. Botón central o Alt + arrastrar: mover lienzo. Rueda: zoom.</p></div>
         <div className="flex items-center gap-4 bg-[#f6f6f2] p-2 rounded-xl border border-[#ddddd5]">
-          <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Línea Directa</span><input type="color" value={lineDirectColor} onChange={e=>setLineDirectColor(e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
-          <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Línea Punteada</span><input type="color" value={lineIndirectColor} onChange={e=>setLineIndirectColor(e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
-          <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Texto Caja</span><input type="color" value={boxTextColor} onChange={e=>setBoxTextColor(e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
+          {controls}
+          <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Línea Directa</span><input type="color" value={colors.direct} onChange={e=>onColorChange("direct",e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
+          <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Línea Punteada</span><input type="color" value={colors.indirect} onChange={e=>onColorChange("indirect",e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
+          <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-1 uppercase">Texto Caja</span><input type="color" value={colors.label} onChange={e=>onColorChange("label",e.target.value)} className="w-8 h-6 p-0 border-0 rounded bg-transparent cursor-pointer" /></div>
           <div className="w-px h-6 bg-[#ddddd5]"></div>
           <button onClick={() => setShowAreaText(!showAreaText)} className={`px-3 py-1.5 rounded text-[9px] font-bold uppercase transition-all border ${showAreaText ? 'bg-[#292925]/10 text-[#292925] border-[#292925]/30' : 'bg-[#f6f6f2] text-[#73736c] border-[#ddddd5] hover:text-[#20201c]'}`}>Área: {showAreaText ? 'ON' : 'OFF'}</button>
           <div className="w-px h-6 bg-[#ddddd5]"></div>
-          <button onClick={() => setShowFlows(!showFlows)} className={`px-4 py-1.5 rounded-lg font-bold flex items-center gap-2 text-xs transition-all ${showFlows ? 'bg-[#242420] text-[#f6f6f2]' : 'text-[#73736c] border border-[#ddddd5] hover:text-[#20201c]'}`}><MoveRight size={14} /> RECORRIDOS: {showFlows ? 'ON' : 'OFF'}</button>
+          <div className="af-flow-layout-options" role="group" aria-label="Organización ortogonal">
+             <button type="button" aria-label="Organizar según burbujas" className="af-flow-tool-button" onClick={copyBubbleLayout}>Organizar desde burbujas</button>
+             <label className="af-flow-checkbox"><input type="checkbox" aria-label="Guías ortogonales" checked={flowGuides} onChange={e=>setFlowGuides(e.target.checked)}/> Guías</label>
+             <label className="af-flow-checkbox"><input type="checkbox" aria-label="Ajustar a cuadrícula" checked={flowSnap} onChange={e=>setFlowSnap(e.target.checked)}/> Ajustar</label>
+             <label className="af-flow-grid-control">Paso <select aria-label="Paso de cuadrícula" value={flowGridSize} onChange={e=>setFlowGridSize(Number(e.target.value))}><option value={20}>20</option><option value={40}>40</option><option value={80}>80</option></select></label>
+           </div><button onClick={() => setShowFlows(!showFlows)} className={`px-4 py-1.5 rounded-lg font-bold flex items-center gap-2 text-xs transition-all ${showFlows ? 'bg-[#242420] text-[#f6f6f2]' : 'text-[#73736c] border border-[#ddddd5] hover:text-[#20201c]'}`}><MoveRight size={14} /> RECORRIDOS: {showFlows ? 'ON' : 'OFF'}</button>
         </div>
       </div>
       <div className={`flex-1 overflow-hidden relative touch-none ${isPanning.current ? 'cursor-grabbing' : 'cursor-crosshair'}`} ref={containerRef} onPointerDown={handleContainerPointerDown} onPointerMove={handleContainerPointerMove} onPointerUp={handleContainerPointerUp} onPointerCancel={handleContainerPointerUp} onMouseDown={e=>{if(e.button===1)e.preventDefault();}} onAuxClick={e=>{if(e.button===1)e.preventDefault();}}>
-         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `${40*zoom}px ${40*zoom}px`, backgroundPosition: `${cameraOffset.x}px ${cameraOffset.y}px` }}></div>
+         {flowGuides&&<div className="absolute inset-0 pointer-events-none af-flow-grid" data-testid="flow-grid" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `${flowGridSize*zoom}px ${flowGridSize*zoom}px`, backgroundPosition: `${cameraOffset.x}px ${cameraOffset.y}px` }}></div>}
          <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${cameraOffset.x}px, ${cameraOffset.y}px) scale(${zoom})` }}>
-           <svg width="4000" height="4000" className="absolute inset-0 overflow-visible" fontFamily="DM Sans, sans-serif">
-              <defs><marker id="arrowHead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill={currentPalette.zones.circulation} opacity="0.8" /></marker></defs>
-              {spaces.map((n1, i) => spaces.slice(i+1).map(n2 => { const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight === 0 || (showFlows && (n1.zone === 'circulation' || n2.zone === 'circulation'))) return null; const isDirect = weight === 2; return <path key={`ortho-${n1.id}-${n2.id}`} d={drawOrthogonalLine(n1, n2)} fill="none" stroke={isDirect ? lineDirectColor : lineIndirectColor} strokeWidth={isDirect ? 2.5 : 1.5} strokeDasharray={relationDasharray(weight)} opacity={isDirect ? 0.6 : 0.3} />; }))}
-              {showFlows && spaces.map((n1, i) => spaces.slice(i+1).map(n2 => { const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight > 0 && (n1.zone === 'circulation' || n2.zone === 'circulation')) { return <path key={`flow-${n1.id}-${n2.id}`} d={drawOrganicCurve(n1, n2)} fill="none" stroke={currentPalette.zones.circulation} strokeWidth="5" strokeDasharray={relationDasharray(weight)} opacity="0.8" markerEnd="url(#arrowHead)"/>; } return null; }))}
-              {spaces.map(node => {
-                 const zColor = getSpaceColor(node); const isHovered = draggingId === node.id || resizingId === node.id;
-                 return (
-                  <g key={`box-${node.id}`} transform={`translate(${node.x || 0}, ${node.y || 0})`}>
-                    {isHovered && <rect width={node.w} height={node.h} rx="12" ry="12" fill="none" stroke={zColor} strokeWidth="6" opacity="0.3" />}
-                    <g onPointerDown={(e) => handlePointerDownNode(e, node.id)} style={{ cursor: draggingId ? 'grabbing' : 'grab' }}>
-                      <rect width={node.w} height={node.h} rx="12" ry="12" fill={currentPalette.bg} stroke={zColor} strokeWidth="2" />
-                      <rect width={node.w} height={node.h} rx="12" ry="12" fill={zColor} opacity="0.15" />
-                      <text x={node.w/2} y={node.h/2 - (showAreaText ? 5 : 0)} textAnchor="middle" dominantBaseline="central" fill={boxTextColor} className="font-bold text-[11px] uppercase tracking-wider pointer-events-none">{node.name.length > 20 ? node.name.substring(0, 18) + '.' : node.name}</text>
-                      {showAreaText && <text x={node.w/2} y={node.h/2 + 12} textAnchor="middle" dominantBaseline="central" fill={zColor} className="font-mono text-[9px] opacity-80 pointer-events-none">{node.area} m²</text>}
-                    </g>
-                    <path d={`M ${node.w - 12} ${node.h - 2} L ${node.w - 2} ${node.h - 12} M ${node.w - 8} ${node.h - 2} L ${node.w - 2} ${node.h - 8}`} stroke={currentPalette.text} strokeWidth="1.5" opacity="0.5" className="cursor-nwse-resize" onPointerDown={(e) => handlePointerDownResize(e, node.id)} />
-                  </g>
-                 )
-              })}
-           </svg>
-         </div>
-      </div>
+           {flowGuides && (alignment.vertical!==null || alignment.horizontal!==null) && <svg data-testid="flow-alignment-guides" className="absolute inset-0 overflow-visible pointer-events-none" width="4000" height="4000" viewBox="0 0 4000 4000" aria-label="Guías de alineación">
+              {alignment.vertical!==null&&<line x1={alignment.vertical} x2={alignment.vertical} y1="0" y2="4000" stroke={colors.direct} strokeWidth={1.2} strokeDasharray="8 5" opacity=".65"/>}
+              {alignment.horizontal!==null&&<line x1="0" x2="4000" y1={alignment.horizontal} y2={alignment.horizontal} stroke={colors.direct} strokeWidth={1.2} strokeDasharray="8 5" opacity=".65"/>}
+            </svg>}
+            <FlowArtwork spaces={spaces} matrix={matrix} getSpaceColor={getSpaceColor} palette={currentPalette} colors={colors} showAreaText={showAreaText} showFlows={showFlows} labelTextSize={typography.labelSize} areaTextSize={typography.areaSize} onNodePointerDown={handlePointerDownNode} onResizePointerDown={handlePointerDownResize} hoveredId={draggingId||resizingId}/>
+        </div>
+           <LegendOverlay palette={{...currentPalette,bg:colors.legendBg,lines:colors.legendBorder}} position={legendPosition} onPositionChange={onLegendPositionChange} items={[{code:'2',text:'Directa / Necesaria',color:colors.direct},{code:'1',text:'Indirecta / Deseable',color:colors.indirect}]}/>
+       </div>
     </div>
   );
 }
@@ -829,136 +760,3 @@ function FloorPlanView({ spaces, matrix, proposals, setProposals, currentPalette
 // ==========================================
 // VISTA 6: ESTUDIO DE IMPRESIÓN
 // ==========================================
-function PrintStudioView({ spaces, matrix, getRelation, currentPalette, getSpaceColor, selectedPaletteId, setSelectedPaletteId, customPalette, handleImageUpload, shuffleCustomPalette, customBgMode, setCustomBackground, showAreaText, topologyTextPos, topologyTextSize, matrixShape, matrixDisplayMode, legendPos }) {
-  const [selectedViews, setSelectedViews] = useState({ matrix: true, topology: true, flowdiagram: true }); const [isExporting, setIsExporting] = useState(false); const [pageFormat, setPageFormat] = useState({ w: 420, h: 297 }); const fileInputRef = useRef(null);
-  const toggleView = (v) => setSelectedViews(prev => ({ ...prev, [v]: !prev[v] }));
-  const getBBox = (mode) => { let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; spaces.forEach(s => { if (mode === 'flow') { minX = Math.min(minX, s.x); minY = Math.min(minY, s.y); maxX = Math.max(maxX, s.x + (s.w || 100)); maxY = Math.max(maxY, s.y + (s.h || 100)); } else { const rad = Math.max(30, Math.sqrt(s.area || 10) * 8); minX = Math.min(minX, s.x - rad); minY = Math.min(minY, s.y - rad); maxX = Math.max(maxX, s.x + rad); maxY = Math.max(maxY, s.y + rad); } }); if(minX === Infinity) return "0 0 800 600"; const pad = 100; return `${minX - pad} ${minY - pad} ${maxX - minX + pad*2} ${maxY - minY + pad*2}`; };
-
-  const exportBatch = async (type) => {
-    setIsExporting(true);
-    // Bundle the existing exporters locally, loading them only when exporting.
-    const [{ default: html2pdf }, { default: html2canvas }] = await Promise.all([import('html2pdf.js'), import('html2canvas')]);
-    const activeKeys = Object.keys(selectedViews).filter(k => selectedViews[k]);
-    if (type === 'pdf' && html2pdf) {
-      const element = document.createElement('div');
-      activeKeys.forEach((key, index) => { const wrapper = document.createElement('div'); wrapper.style.width = `${pageFormat.w}mm`; wrapper.style.height = `${pageFormat.h}mm`; wrapper.style.backgroundColor = currentPalette.bg; wrapper.style.position = 'relative'; wrapper.style.overflow = 'hidden'; if(index < activeKeys.length - 1) wrapper.style.pageBreakAfter = 'always'; const content = document.getElementById(`print-node-${key}`); if(content) { const clone = content.cloneNode(true); clone.style.display = 'flex'; clone.style.width = '100%'; clone.style.height = '100%'; wrapper.appendChild(clone); } element.appendChild(wrapper); });
-      const opt = { margin: 0, filename: `GenPlan_Batch_Export.pdf`, image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: [pageFormat.w, pageFormat.h], orientation: pageFormat.w > pageFormat.h ? 'landscape' : 'portrait' } };
-      await html2pdf().set(opt).from(element).save();
-    } else if ((type === 'png' || type === 'jpg') && html2canvas) {
-       for(const key of activeKeys) { const content = document.getElementById(`print-node-${key}`); if (content) { content.style.display = 'flex'; content.style.width = `${pageFormat.w}mm`; content.style.height = `${pageFormat.h}mm`; const canvas = await html2canvas(content, { scale: 2, backgroundColor: currentPalette.bg, useCORS: true }); const link = document.createElement('a'); link.download = `GenPlan_${key}.${type}`; link.href = canvas.toDataURL(`image/${type === 'jpg' ? 'jpeg' : 'png'}`); link.click(); content.style.display = 'none'; } }
-    }
-    setIsExporting(false);
-  };
-
-  const MatrixContent = () => (
-    <FunctionalMatrixGraphic spaces={spaces} getRelation={getRelation} getSpaceColor={getSpaceColor}
-      triangular={matrixShape === 'triangular'} mode={matrixDisplayMode} editable={false} legendPos={legendPos} />
-  );
-
-  const FlowContent = () => (
-     <svg viewBox={getBBox('flow')} className="w-full h-full relative z-10" fontFamily="DM Sans, sans-serif">
-        {spaces.map((n1, i) => spaces.slice(i+1).map(n2 => {
-             const weight = matrix[[n1.id, n2.id].sort().join('-')] || 0; if (weight === 0) return null;
-             const cx1 = n1.x+n1.w/2, cy1 = n1.y+n1.h/2, cx2 = n2.x+n2.w/2, cy2 = n2.y+n2.h/2, isDirect = weight===2;
-             const d = Math.abs(cx1-cx2) > Math.abs(cy1-cy2) ? `M ${cx1} ${cy1} H ${(cx1+cx2)/2} V ${cy2} H ${cx2}` : `M ${cx1} ${cy1} V ${(cy1+cy2)/2} H ${cx2} V ${cy2}`;
-             return <path key={`ortho-${n1.id}-${n2.id}`} d={d} fill="none" stroke={currentPalette.text} strokeWidth={isDirect ? 2.5 : 1} strokeDasharray={isDirect ? 'none' : '4,4'} opacity={isDirect ? 0.6 : 0.3} />;
-        }))}
-        {spaces.map(node => {
-           const zColor = getSpaceColor(node);
-           return (
-            <g key={`box-${node.id}`} transform={`translate(${node.x}, ${node.y})`}>
-              <rect width={node.w} height={node.h} rx="12" ry="12" fill={currentPalette.bg} stroke={zColor} strokeWidth="3" />
-              <rect width={node.w} height={node.h} rx="12" ry="12" fill={zColor} opacity="0.15" />
-              <text x={node.w/2} y={node.h/2 - (showAreaText ? 5 : 0)} textAnchor="middle" dominantBaseline="central" fill={currentPalette.text} className="font-bold text-[14px] uppercase tracking-wider">{node.name}</text>
-              {showAreaText && <text x={node.w/2} y={node.h/2 + 14} textAnchor="middle" dominantBaseline="central" fill={zColor} className="font-mono text-[12px] opacity-80">{node.area} m²</text>}
-            </g>
-           )
-        })}
-     </svg>
-  );
-
-  const TopologyContent = () => (
-     <svg viewBox={getBBox('topo')} className="w-full h-full relative z-10" fontFamily="DM Sans, sans-serif">
-        <defs>
-          <filter id="print-gooey"><feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" /><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -10" result="goo" /><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
-          {spaces.map((nodeA, i) => spaces.slice(i + 1).map(nodeB => {
-            const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null;
-            return (<linearGradient key={`p-grad-${nodeA.id}-${nodeB.id}`} id={`p-grad-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor={getSpaceColor(nodeA)} /><stop offset="100%" stopColor={getSpaceColor(nodeB)} /></linearGradient>);
-          }))}
-        </defs>
-        <g opacity="0.6" filter="url(#print-gooey)">
-          {spaces.map((nodeA, i) => spaces.slice(i + 1).map(nodeB => {
-            const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null;
-            const radA = Math.max(30, Math.sqrt(nodeA.area || 10) * 8), radB = Math.max(30, Math.sqrt(nodeB.area || 10) * 8);
-            return <line key={`p-goo-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={`url(#p-grad-${nodeA.id}-${nodeB.id})`} strokeWidth={Math.min(radA, radB)*1.8} strokeLinecap="round" />;
-          }))}
-          {spaces.map(node => <circle key={`p-goo-node-${node.id}`} cx={node.x} cy={node.y} r={(Math.max(30, Math.sqrt(node.area || 10) * 8)) * 1.8} fill={getSpaceColor(node)} />)}
-        </g>
-        <g>{spaces.map((nodeA, i) => spaces.slice(i + 1).map(nodeB => { const weight = matrix[[nodeA.id, nodeB.id].sort().join('-')] || 0; if (weight === 0) return null; return <line key={`p-dash-${nodeA.id}-${nodeB.id}`} x1={nodeA.x} y1={nodeA.y} x2={nodeB.x} y2={nodeB.y} stroke={currentPalette.text} strokeWidth="1.5" strokeDasharray={relationDasharray(weight)} opacity={weight===2?0.75:0.5} />; }))}</g>
-        {spaces.map(node => {
-           const zColor = getSpaceColor(node); const rad = Math.max(30, Math.sqrt(node.area || 10) * 8); const textRadius = rad + 6;
-           return (
-            <g key={`p-node-${node.id}`}>
-              <circle cx={node.x} cy={node.y} r={rad} fill={currentPalette.bg} stroke={currentPalette.bg} strokeWidth="4" />
-              <circle cx={node.x} cy={node.y} r={rad} fill={zColor} fillOpacity="0.3" stroke={zColor} strokeWidth="2" />
-              
-              {topologyTextPos === 'edge' ? (
-                  <>
-                    <circle cx={node.x} cy={node.y} r="4" fill={currentPalette.bg} /><circle cx={node.x} cy={node.y} r="2" fill={currentPalette.text} />
-                    {showAreaText && <text x={node.x} y={node.y + 14} textAnchor="middle" fill={zColor} className="text-[12px] font-mono font-bold">{node.area} m²</text>}
-                    <defs><path id={`p-text-path-${node.id}`} d={`M ${node.x - textRadius} ${node.y} A ${textRadius} ${textRadius} 0 1 1 ${node.x + textRadius} ${node.y}`} /></defs>
-                    <text fill={currentPalette.text} style={{ fontSize: `${topologyTextSize}px` }} className="font-bold uppercase tracking-widest"><textPath href={`#p-text-path-${node.id}`} startOffset="50%" textAnchor="middle">{node.name}</textPath></text>
-                  </>
-              ) : (
-                  <>
-                    <text x={node.x} y={node.y - (showAreaText ? (topologyTextSize/2 - 2) : 0)} textAnchor="middle" dominantBaseline="central" fill={currentPalette.text} style={{ fontSize: `${topologyTextSize}px` }} className="font-bold uppercase tracking-wider">{node.name}</text>
-                    {showAreaText && <text x={node.x} y={node.y + (topologyTextSize/2 + 6)} textAnchor="middle" dominantBaseline="central" fill={zColor} className="text-[12px] font-mono font-bold">{node.area} m²</text>}
-                  </>
-              )}
-            </g>
-          )
-        })}
-     </svg>
-  );
-
-  return (
-    <div className="flex flex-col h-full bg-[#f6f6f2] overflow-hidden">
-      <div id="print-node-matrix" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="fm-print-wrapper"><MatrixContent /></div></div>
-      <div id="print-node-flowdiagram" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><div className="absolute inset-0 opacity-10" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `40px 40px` }}></div><FlowContent /></div>
-      <div id="print-node-topology" className="items-center justify-center relative" style={{ display: 'none', backgroundColor: currentPalette.bg, padding: '40px' }}><TopologyContent /></div>
-      
-      <div className="bg-[#ffffff]/90 px-6 py-4 shadow-lg flex items-center justify-between z-10 border-b border-[#ddddd5] flex-shrink-0">
-        <h2 className="text-xl font-light text-[#20201c] tracking-wide flex items-center gap-2"><Palette className="text-[#a23d32]"/> Estudio de <span className="font-bold text-[#20201c]">láminas</span></h2>
-        <div className="flex items-center gap-4 bg-[#f6f6f2] p-2 rounded-xl border border-[#ddddd5]">
-          <div className="flex flex-col"><span className="text-[9px] text-[#73736c] px-2 uppercase">Tema / Paleta</span>
-            <div className="flex items-center">
-              <select value={selectedPaletteId} onChange={e => setSelectedPaletteId(e.target.value)} className="bg-transparent text-[#242420] font-bold text-sm outline-none px-2 w-32">{PRINT_PALETTES.map(p => <option key={p.id} value={p.id} className="text-black">{p.name}</option>)}{customPalette && <option value="custom_image" className="text-black">{customPalette.name}</option>}</select>
-              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
-              <button onClick={() => fileInputRef.current.click()} className="text-[#292925] hover:text-[#20201c] p-1 ml-1 bg-[#292925]/10 rounded"><ImagePlus size={16} /></button>
-              {selectedPaletteId === 'custom_image' && customPalette && (<div className="flex items-center gap-1 ml-1 bg-[#ffffff] p-1 rounded-lg border border-[#ddddd5]"><button onClick={shuffleCustomPalette} className="text-[#a23d32] p-1 bg-[#a23d32]/10 rounded"><Shuffle size={12} /></button><button onClick={() => setCustomBackground('light')} className={`w-3 h-3 rounded-sm border ${customBgMode === 'light' ? 'border-[#292925]' : 'border-[#ddddd5]'} bg-white`}></button><button onClick={() => setCustomBackground('dark')} className={`w-3 h-3 rounded-sm border ${customBgMode === 'dark' ? 'border-[#292925]' : 'border-[#ddddd5]'} bg-black`}></button></div>)}
-            </div>
-          </div>
-          <div className="w-px h-6 bg-[#ddddd5]"></div>
-          <div className="flex gap-2"><div className="flex flex-col"><span className="text-[9px] text-[#73736c] uppercase">Ancho (mm)</span><input type="number" value={pageFormat.w} onChange={e=>setPageFormat({...pageFormat, w: Number(e.target.value)})} className="bg-[#f6f6f2] text-[#20201c] border border-[#ddddd5] w-16 text-center text-xs p-1 rounded" /></div><div className="flex flex-col"><span className="text-[9px] text-[#73736c] uppercase">Alto (mm)</span><input type="number" value={pageFormat.h} onChange={e=>setPageFormat({...pageFormat, h: Number(e.target.value)})} className="bg-[#f6f6f2] text-[#20201c] border border-[#ddddd5] w-16 text-center text-xs p-1 rounded" /></div></div>
-          <div className="w-px h-6 bg-[#ddddd5]"></div>
-          <div className="flex gap-2">
-            <button onClick={() => exportBatch('pdf')} disabled={isExporting} className="bg-[#a23d32] text-[#20201c] px-4 py-2 rounded font-bold flex items-center gap-2 text-sm disabled:opacity-50">{isExporting ? <Loader2 className="animate-spin" size={14}/> : <Printer size={14}/>} PDF</button>
-            <button onClick={() => exportBatch('png')} disabled={isExporting} className="bg-[#292925] text-[#f6f6f2] px-4 py-2 rounded font-bold flex items-center gap-2 text-sm disabled:opacity-50">PNG</button>
-            <button onClick={() => exportBatch('jpg')} disabled={isExporting} className="bg-white text-black px-4 py-2 rounded font-bold flex items-center gap-2 text-sm disabled:opacity-50">JPG</button>
-          </div>
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center custom-scrollbar" style={{ backgroundColor: `${currentPalette.bg}10` }}>
-         <div className="bg-[#ffffff] p-6 rounded-2xl border border-[#ddddd5] w-full max-w-2xl text-center mb-8 flex-shrink-0 shadow-xl"><h3 className="text-xl font-light text-[#20201c] mb-2">Selecciona vistas a Exportar</h3><div className="grid grid-cols-3 gap-4 mt-6"><button onClick={()=>toggleView('matrix')} className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedViews.matrix ? 'bg-[#242420]/10 border-[#242420] text-[#242420] shadow-[0_0_15px_rgba(0,255,157,0.1)]' : 'bg-[#f6f6f2] border-[#ddddd5] text-[#73736c]'}`}><Grid size={24}/> <span>Matriz Funcional</span></button><button onClick={()=>toggleView('flowdiagram')} className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedViews.flowdiagram ? 'bg-[#242420]/10 border-[#242420] text-[#242420] shadow-[0_0_15px_rgba(0,255,157,0.1)]' : 'bg-[#f6f6f2] border-[#ddddd5] text-[#73736c]'}`}><Network size={24}/> <span>Diagrama Flujos</span></button><button onClick={()=>toggleView('topology')} className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedViews.topology ? 'bg-[#242420]/10 border-[#242420] text-[#242420] shadow-[0_0_15px_rgba(0,255,157,0.1)]' : 'bg-[#f6f6f2] border-[#ddddd5] text-[#73736c]'}`}><BrainCircuit size={24}/> <span>Topología Metaball</span></button></div></div>
-         <div className="w-full max-w-6xl"><div className="flex items-center gap-3 mb-6 border-b border-[#ddddd5] pb-2"><ZoomIn className="text-[#73736c]" size={16} /><h4 className="text-sm font-bold text-[#20201c] uppercase tracking-widest">Previsualización de Hojas</h4></div>
-            <div className="flex flex-wrap gap-10 justify-center pb-12">
-                {selectedViews.matrix && (<div className="flex flex-col items-center gap-3 group"><span className="text-[10px] text-[#242420] uppercase font-bold tracking-widest bg-[#ffffff] px-3 py-1 rounded-full border border-[#ddddd5]">Pág 1: Matriz</span><div className="shadow-2xl border border-[#ddddd5] overflow-hidden flex items-center justify-center transition-transform group-hover:scale-105" style={{ width: '280px', aspectRatio: `${pageFormat.w}/${pageFormat.h}`, backgroundColor: currentPalette.bg }}><div style={{ transform: 'scale(0.35)', transformOrigin: 'center' }}><MatrixContent /></div></div></div>)}
-                {selectedViews.flowdiagram && (<div className="flex flex-col items-center gap-3 group"><span className="text-[10px] text-[#242420] uppercase font-bold tracking-widest bg-[#ffffff] px-3 py-1 rounded-full border border-[#ddddd5]">Pág 2: Flujos</span><div className="shadow-2xl border border-[#ddddd5] overflow-hidden relative transition-transform group-hover:scale-105" style={{ width: '280px', aspectRatio: `${pageFormat.w}/${pageFormat.h}`, backgroundColor: currentPalette.bg, padding: '15px' }}><div className="absolute inset-0 opacity-10" style={{ backgroundImage: `linear-gradient(${currentPalette.lines} 1px, transparent 1px), linear-gradient(90deg, ${currentPalette.lines} 1px, transparent 1px)`, backgroundSize: `15px 15px` }}></div><FlowContent /></div></div>)}
-                {selectedViews.topology && (<div className="flex flex-col items-center gap-3 group"><span className="text-[10px] text-[#242420] uppercase font-bold tracking-widest bg-[#ffffff] px-3 py-1 rounded-full border border-[#ddddd5]">Pág 3: Topología</span><div className="shadow-2xl border border-[#ddddd5] overflow-hidden transition-transform group-hover:scale-105" style={{ width: '280px', aspectRatio: `${pageFormat.w}/${pageFormat.h}`, backgroundColor: currentPalette.bg, padding: '15px' }}><TopologyContent /></div></div>)}
-            </div>
-         </div>
-      </div>
-
-    </div>
-  );
-}
