@@ -20,6 +20,8 @@ jobs:
         run: npm run build
       - name: Validación de código y componentes
         run: node scripts/verify-visuals.mjs
+      - name: Probar distribución ortogonal
+        run: node scripts/test-flow-layout.mjs
       - name: Instalar Chromium para pruebas funcionales
         run: npx playwright install --with-deps chromium
       - name: Validar navegador y exportación PDF
