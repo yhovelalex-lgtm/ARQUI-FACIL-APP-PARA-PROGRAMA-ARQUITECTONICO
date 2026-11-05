@@ -95,7 +95,7 @@ try{
  await page.getByRole('button',{name:'Organizar según burbujas'}).click();
  assert.equal(await page.locator('g[transform^="translate("]').count(),11,'Se conserva el número de cajas');
  const flowPositions=await page.locator('g[transform^="translate("]').evaluateAll(elements=>elements.map(el=>el.getAttribute('transform')));
- assert.ok(flowPositions.every(value=>/^translate\\(\\d+(?:\\.\\d+)?,\\d+(?:\\.\\d+)?\\)$/.test(value)),'Transformaciones válidas');
+ assert.ok(flowPositions.every(value=>/^translate\(\d+(?:\.\d+)?,\d+(?:\.\d+)?\)$/.test(value)),'Transformaciones válidas');
  await page.getByRole('checkbox',{name:'Guías ortogonales'}).uncheck();
  assert.equal(await page.locator('[data-testid="flow-grid"]').count(),0,'Se puede ocultar la cuadrícula');
  await page.getByRole('checkbox',{name:'Guías ortogonales'}).check();
