@@ -11,7 +11,7 @@ export const PROJECT_FIELDS = Object.freeze([
   'projectName','activeTab','spaces','matrix','floorPlanProposals',
   'colorMode','colorSeed','styleOverrides','matrixTriangular','topologyNodes',
   'matrixDisplayMode','showGooey','gooeyStrength','showFlows','legendPositions',
-  'printSelectedViews','printPageFormat','printDpi','printLegendPlacement','selectedPaletteId',
+  'printSelectedViews','printPageFormat','printDpi','printLegendPlacement','flowGuides','flowSnap','flowGridSize','selectedPaletteId',
   'customPalette','extractedColors','customBgMode','showAreaText',
   'topologyTextPos','topologyTextSize','typography'
 ]);
